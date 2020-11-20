@@ -1,25 +1,122 @@
 {
-	"name": "service-fabric-reliable-services",
-	"displayName": "Service Fabric Reliable Services",
+	"name": "service-fabric-services",
+	"displayName": "Service Fabric Services",
 	"description": "A Visual Studio Code extension that provides support for building Service Fabric applications in Visual Studio Code.",
 	"version": "0.0.1",
+	"publisher": "ms-azuretools",
+	"icon": "media/service-fabric.png",
 	"engines": {
 		"vscode": "^1.51.0"
 	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/Microsoft/vscode-service-fabric-reliable-services"
+	},
+	"galleryBanner": {
+		"color": "#3c3c3c",
+		"theme": "dark"
+	},
 	"categories": [
-		"Other"
+		"Azure"
 	],
+	"keywords": [
+		"Azure",
+		"ServiceFabric"
+	],
+	"preview": true,
 	"activationEvents": [
-		"onCommand:service-fabric-reliable-services.helloWorld"
+		"onCommand:vscode-sf.addSFService",
+		"onCommand:vscode-sf.buildApplication",
+		"onCommand:vscode-sf.cleanJavaApplication",
+		"onCommand:vscode-sf.createApplication",
+		"onCommand:vscode-sf.deployApplication",
+		"onCommand:vscode-sf.publishApplication",
+		"onCommand:vscode-sf.removeApplication",
+		"onCommand:vscode-sf.upgradeApplication"
 	],
-	"main": "./out/extension.js",
+	"main": "./out/src/extension",
 	"contributes": {
-		"commands": [
+		"commands": [{
+				"command": "vscode-sf.addSFService",
+				"title": "Add Service",
+				"category": "Service Fabric"
+			},
 			{
-				"command": "service-fabric-reliable-services.helloWorld",
-				"title": "Hello World"
+				"command": "vscode-sf.deployApplication",
+				"title": "Deploy Application (Localhost)",
+				"category": "Service Fabric"
+			},
+			{
+				"command": "vscode-sf.publishApplication",
+				"title": "Publish Application",
+				"category": "Service Fabric"
+			},
+			{
+				"command": "vscode-sf.removeApplication",
+				"title": "Remove Application",
+				"category": "Service Fabric"
+			},
+			{
+				"command": "vscode-sf.buildApplication",
+				"title": "Build Application",
+				"category": "Service Fabric"
+			},
+			{
+				"command": "vscode-sf.cleanJavaApplication",
+				"title": "Clean Application",
+				"category": "Service Fabric"
+			},
+			{
+				"command": "vscode-sf.createApplication",
+				"title": "Create Application",
+				"category": "Service Fabric"
+			},
+			{
+				"command": "vscode-sf.upgradeApplication",
+				"title": "Upgrade Application",
+				"category": "Service Fabric"
 			}
-		]
+		],
+		"menus": {
+			"explorer/context": [{
+					"command": "vscode-sf.createApplication",
+					"group": "navigation"
+				},
+				{
+					"command": "vscode-sf.buildApplication",
+					"group": "navigation"
+				},
+				{
+					"command": "vscode-sf.cleanJavaApplication",
+					"group": "navigation"
+				},
+				{
+					"command": "vscode-sf.deployApplication",
+					"group": "navigation"
+				},
+				{
+					"command": "vscode-sf.publishApplication",
+					"group": "navigation"
+				},
+				{
+					"command": "vscode-sf.removeApplication",
+					"group": "navigation"
+				},
+				{
+					"command": "vscode-sf.upgradeApplication",
+					"group": "navigation"
+				}
+			],
+			"editor/context": [{
+					"command": "vscode-sf.createApplication",
+					"group": "navigation"
+				},
+				{
+					"command": "vscode-sf.buildApplication",
+					"group": "navigation"
+				}
+			]
+		}
 	},
 	"scripts": {
 		"vscode:prepublish": "yarn run compile",
@@ -30,16 +127,16 @@
 		"test": "node ./out/test/runTest.js"
 	},
 	"devDependencies": {
-		"@types/vscode": "^1.51.0",
 		"@types/glob": "^7.1.3",
 		"@types/mocha": "^8.0.0",
-		"@types/node": "^12.11.7",
-		"eslint": "^7.9.0",
+		"@types/node": "^12.19.6",
+		"@types/vscode": "^1.51.0",
 		"@typescript-eslint/eslint-plugin": "^4.1.1",
 		"@typescript-eslint/parser": "^4.1.1",
+		"eslint": "^7.9.0",
 		"glob": "^7.1.6",
 		"mocha": "^8.1.3",
-		"typescript": "^4.0.2",
+		"typescript": "^4.1.2",
 		"vscode-test": "^1.4.0"
 	}
 }

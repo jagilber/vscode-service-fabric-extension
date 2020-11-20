@@ -9,6 +9,14 @@
 			],
 			"group": "build",
 			"label": "tsc: build - tsconfig.json"
+		},
+		{
+			"type": "npm",
+			"script": "pretest",
+			"group": "clean",
+			"problemMatcher": [],
+			"label": "npm: pretest",
+			"detail": "yarn run compile && yarn run lint"
 		}
 	]
 }
