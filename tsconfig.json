@@ -3,6 +3,8 @@
 		"module": "commonjs",
 		"target": "es6",
 		"outDir": "out",
+		"inlineSources": true,
+		"mapRoot": "out",
 		"lib": [
 			"es6"
 		],

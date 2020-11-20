@@ -1,5 +1,5 @@
 {
-  "name": "service-fabric-reliable-services",
+	"name": "service-fabric-reliable-services",
 	"displayName": "Service Fabric Reliable Services",
 	"description": "A Visual Studio Code extension that provides support for building Service Fabric applications in Visual Studio Code.",
 	"version": "0.0.1",
@@ -10,7 +10,7 @@
 		"Other"
 	],
 	"activationEvents": [
-        "onCommand:service-fabric-reliable-services.helloWorld"
+		"onCommand:service-fabric-reliable-services.helloWorld"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
