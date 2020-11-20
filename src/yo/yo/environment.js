@@ -1,20 +1,20 @@
 "use strict";
-exports.__esModule = true;
-var path = require("path");
-var fs = require("fs");
-var childProcess = require("child_process");
-var os_1 = require("os");
-var adapter_1 = require("./adapter");
-var yeoman = require('yeoman-environment');
-var uniq = require('array-uniq');
-var win32 = process.platform === 'win32';
-var getNpmPaths = function () {
+Object.defineProperty(exports, "__esModule", { value: true });
+const path = require("path");
+const fs = require("fs");
+const childProcess = require("child_process");
+const os_1 = require("os");
+const adapter_1 = require("./adapter");
+const yeoman = require('yeoman-environment');
+const uniq = require('array-uniq');
+const win32 = process.platform === 'win32';
+const getNpmPaths = function () {
     if (process.env.NODE_PATH) {
         return process.env.NODE_PATH.split(path.delimiter);
     }
     require('fix-path')();
     // Get the npm path from the user env variables.
-    var paths = process.env.PATH.split(path.delimiter).map(function (item) { return path.join(item, '..', 'lib', 'node_modules'); });
+    const paths = process.env.PATH.split(path.delimiter).map(item => path.join(item, '..', 'lib', 'node_modules'));
     // Add npm path by running npm root command
     paths.push(childProcess.execSync('npm root -g', { encoding: 'utf8' }).toString().trim());
     // Default paths for each system
@@ -26,9 +26,9 @@ var getNpmPaths = function () {
     }
     try {
         // Somehow `npm get prefix` does not return the correct value
-        var userconfig = childProcess.execSync('npm get userconfig', { encoding: 'utf8' }).toString().trim();
-        var content = fs.readFileSync(userconfig).toString('utf8');
-        var match = content.match(new RegExp("prefix=(.*?)" + os_1.EOL));
+        const userconfig = childProcess.execSync('npm get userconfig', { encoding: 'utf8' }).toString().trim();
+        const content = fs.readFileSync(userconfig).toString('utf8');
+        const match = content.match(new RegExp(`prefix=(.*?)${os_1.EOL}`));
         if (match) {
             if (win32) {
                 paths.push(path.join(match[1], 'node_modules'));
@@ -45,8 +45,9 @@ var getNpmPaths = function () {
 function default_1(args, opts) {
     args = args || [];
     opts = opts || {};
-    var env = yeoman.createEnv(args, opts, new adapter_1["default"]());
+    let env = yeoman.createEnv(args, opts, new adapter_1.default());
     env.getNpmPaths = getNpmPaths;
     return env;
 }
-exports["default"] = default_1;
+exports.default = default_1;
+//# sourceMappingURL=../../../src/out/yo/yo/environment.js.map

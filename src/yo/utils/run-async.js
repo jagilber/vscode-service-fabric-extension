@@ -1,8 +1,8 @@
 "use strict";
-exports.__esModule = true;
-var vscode_1 = require("vscode");
-var runAsync = require('run-async');
-var isFn = require('is-fn');
+Object.defineProperty(exports, "__esModule", { value: true });
+const vscode_1 = require("vscode");
+const runAsync = require('run-async');
+const isFn = require('is-fn');
 // Helper function that will show a progress bar while running a function async
 function default_1(func) {
     if (!isFn(func)) {
@@ -10,23 +10,25 @@ function default_1(func) {
             return Promise.resolve(func);
         };
     }
-    var fn = runAsync(func);
+    const fn = runAsync(func);
     return function () {
-        var args = Array.prototype.slice.call(arguments);
-        return new Promise(function (resolve, reject) {
-            Promise.resolve(vscode_1.window.showQuickPick(new Promise(function (res, rej) {
+        const args = Array.prototype.slice.call(arguments);
+        return new Promise((resolve, reject) => {
+            Promise.resolve(vscode_1.window.showQuickPick(new Promise((res, rej) => {
                 fn.apply(fn, args)
-                    .then(function (result) {
+                    .then(result => {
                     rej();
                     resolve(result);
-                })["catch"](function (err) {
+                })
+                    .catch(err => {
                     rej();
                     reject(err);
                 });
-            })))["catch"](function (err) {
+            }))).catch(err => {
                 // do nothing because the input is always rejected
             });
         });
     };
 }
-exports["default"] = default_1;
+exports.default = default_1;
+//# sourceMappingURL=../../../src/out/yo/utils/run-async.js.map

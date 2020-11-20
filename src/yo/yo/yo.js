@@ -1,39 +1,39 @@
 "use strict";
-exports.__esModule = true;
-var vscode_1 = require("vscode");
-var os_1 = require("os");
-var _ = require("lodash");
-var environment_1 = require("./environment");
-var EscapeException_1 = require("../utils/EscapeException");
-var readPkgUp = require('read-pkg-up');
-var semver = require('semver');
-var elegantSpinner = require('elegant-spinner');
-var figures = require('figures');
-var frame = elegantSpinner();
-var Yeoman = /** @class */ (function () {
-    function Yeoman(options) {
+Object.defineProperty(exports, "__esModule", { value: true });
+const vscode_1 = require("vscode");
+const os_1 = require("os");
+const _ = require("lodash");
+const environment_1 = require("./environment");
+const EscapeException_1 = require("../utils/EscapeException");
+const readPkgUp = require('read-pkg-up');
+const semver = require('semver');
+const elegantSpinner = require('elegant-spinner');
+const figures = require('figures');
+const frame = elegantSpinner();
+class Yeoman {
+    constructor(options) {
         this._options = options;
-        this._env = environment_1["default"](undefined, options);
+        this._env = environment_1.default(undefined, options);
         this._status = vscode_1.window.createStatusBarItem(vscode_1.StatusBarAlignment.Left);
         this._interval;
     }
-    Yeoman.prototype.getEnvironment = function () {
+    getEnvironment() {
         return this._env;
-    };
-    Yeoman.prototype.getGenerators = function () {
-        var generatorsMeta = this._env.store.getGeneratorsMeta();
+    }
+    getGenerators() {
+        const generatorsMeta = this._env.store.getGeneratorsMeta();
         // Remove sub generators from list
-        var list = Object.keys(generatorsMeta).filter(function (key) { return key.split(':')[1] === 'app'; });
-        list = list.map(function (key) {
-            var item = generatorsMeta[key];
-            var name = key.split(':')[0];
-            var pkgPath = readPkgUp.sync({ cwd: item.resolved });
+        let list = Object.keys(generatorsMeta).filter((key) => key.split(':')[1] === 'app');
+        list = list.map(key => {
+            const item = generatorsMeta[key];
+            const name = key.split(':')[0];
+            const pkgPath = readPkgUp.sync({ cwd: item.resolved });
             if (!pkgPath.pkg) {
                 return null;
             }
-            var pkg = pkgPath.pkg;
-            var generatorVersion = pkg.dependencies['yeoman-generator'];
-            var generatorMeta = _.pick(pkg, 'name', 'version', 'description');
+            const pkg = pkgPath.pkg;
+            const generatorVersion = pkg.dependencies['yeoman-generator'];
+            const generatorMeta = _.pick(pkg, 'name', 'version', 'description');
             // Ignore the generator if does not depend on `yeoman-generator`
             if (!generatorVersion) {
                 return null;
@@ -47,8 +47,8 @@ var Yeoman = /** @class */ (function () {
                 generatorMeta.officialGenerator = generatorMeta.repository.url.indexOf('github.com/yeoman/') > -1;
             }
             // Add subgenerators
-            generatorMeta.subGenerators = Object.keys(generatorsMeta).reduce(function (result, key) {
-                var split = key.split(':');
+            generatorMeta.subGenerators = Object.keys(generatorsMeta).reduce((result, key) => {
+                const split = key.split(':');
                 if (split[0] === name) {
                     result.push(split[1]);
                 }
@@ -57,37 +57,36 @@ var Yeoman = /** @class */ (function () {
             return generatorMeta;
         });
         return _.compact(list);
-    };
-    Yeoman.prototype.run = function (generator, cwd) {
-        var _this = this;
+    }
+    run(generator, cwd) {
         if (!cwd) {
             throw new Error('Please open a workspace directory first.');
         }
         process.chdir(cwd);
-        var prefix = 'generator-';
+        const prefix = 'generator-';
         if (generator.indexOf(prefix) === 0) {
             generator = generator.slice(prefix.length);
         }
-        return new Promise(function (resolve, reject) {
-            Promise.resolve(vscode_1.window.showQuickPick(new Promise(function (res, rej) {
-                setImmediate(function () {
+        return new Promise((resolve, reject) => {
+            Promise.resolve(vscode_1.window.showQuickPick(new Promise((res, rej) => {
+                setImmediate(() => {
                     try {
-                        _this._env.run(generator, _this.done)
-                            .on('npmInstall', function () {
-                            _this.setState('install node dependencies');
+                        this._env.run(generator, this.done)
+                            .on('npmInstall', () => {
+                            this.setState('install node dependencies');
                         })
-                            .on('bowerInstall', function () {
-                            _this.setState('install bower dependencies');
+                            .on('bowerInstall', () => {
+                            this.setState('install bower dependencies');
                         })
-                            .on('error', function (err) {
-                            if (!(err instanceof EscapeException_1["default"])) {
+                            .on('error', err => {
+                            if (!(err instanceof EscapeException_1.default)) {
                                 vscode_1.window.showErrorMessage(err.message);
                                 throw err;
                             }
                         })
-                            .on('end', function () {
-                            _this.clearState();
-                            console.log("" + os_1.EOL + figures.tick + " done");
+                            .on('end', () => {
+                            this.clearState();
+                            console.log(`${os_1.EOL}${figures.tick} done`);
                             resolve(res);
                         });
                     }
@@ -96,29 +95,28 @@ var Yeoman = /** @class */ (function () {
                     }
                     rej();
                 });
-            })))["catch"](function (err) {
+            }))).catch(err => {
                 // do nothing because the input is always rejected
             });
         });
-    };
-    Yeoman.prototype.setState = function (state) {
-        var _this = this;
+    }
+    setState(state) {
         console.log(state);
         this._status.show();
         this._status.tooltip = state;
-        this._interval = setInterval(function () {
-            _this._status.text = frame() + " yo";
+        this._interval = setInterval(() => {
+            this._status.text = `${frame()} yo`;
         }, 50);
-    };
-    Yeoman.prototype.clearState = function () {
+    }
+    clearState() {
         clearInterval(this._interval);
         this._status.dispose();
-    };
-    Yeoman.prototype.done = function (err) {
+    }
+    done(err) {
         if (err) {
             // handle error
         }
-    };
-    return Yeoman;
-}());
-exports["default"] = Yeoman;
+    }
+}
+exports.default = Yeoman;
+//# sourceMappingURL=../../../src/out/yo/yo/yo.js.map

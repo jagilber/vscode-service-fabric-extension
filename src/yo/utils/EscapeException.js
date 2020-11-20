@@ -1,3 +1,4 @@
 "use strict";
-exports.__esModule = true;
-exports["default"] = require('error-ex')('EscapeException');
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = require('error-ex')('EscapeException');
+//# sourceMappingURL=../../../src/out/yo/utils/EscapeException.js.map

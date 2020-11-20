@@ -1,85 +1,83 @@
 "use strict";
-exports.__esModule = true;
-var util = require("util");
-var vscode_1 = require("vscode");
-var factory_1 = require("../prompts/factory");
-var run_async_1 = require("../utils/run-async");
-var logger = require('yeoman-environment/lib/util/log');
-var diff = require('diff');
-var isFn = require('is-fn');
-var CodeAdapter = /** @class */ (function () {
-    function CodeAdapter() {
+Object.defineProperty(exports, "__esModule", { value: true });
+const util = require("util");
+const vscode_1 = require("vscode");
+const factory_1 = require("../prompts/factory");
+const run_async_1 = require("../utils/run-async");
+const logger = require('yeoman-environment/lib/util/log');
+const diff = require('diff');
+const isFn = require('is-fn');
+class CodeAdapter {
+    constructor() {
         this.log = logger();
         this.outBuffer = '';
-        var self = this;
+        let self = this;
         this.outChannel = vscode_1.window.createOutputChannel('Yeoman');
         this.outChannel.clear();
         this.outChannel.show(true);
         // TODO Do not overwrite these methods
         console.error = console.log = function () {
-            var line = util.format.apply(util, arguments);
-            self.outBuffer += line + "\n";
+            const line = util.format.apply(util, arguments);
+            self.outBuffer += `${line}\n`;
             self.outChannel.appendLine(line);
             return this;
         };
         this.log.write = function () {
-            var line = util.format.apply(util, arguments);
+            const line = util.format.apply(util, arguments);
             self.outBuffer += line;
             self.outChannel.append(line);
             return this;
         };
     }
-    CodeAdapter.prototype.prompt = function (questions, callback) {
-        var _this = this;
-        var answers = {};
+    prompt(questions, callback) {
+        let answers = {};
         callback = callback || function () { };
-        var promise = questions.reduce(function (promise, question) {
+        const promise = questions.reduce((promise, question) => {
             return promise
-                .then(function () {
+                .then(() => {
                 if (question.when === undefined) {
                     return true;
                 }
                 else if (isFn(question.when)) {
-                    return run_async_1["default"](question.when)(answers);
+                    return run_async_1.default(question.when)(answers);
                 }
                 return question.when;
             })
-                .then(function (askQuestion) {
+                .then(askQuestion => {
                 if (askQuestion) {
-                    var prompt_1 = factory_1["default"].createPrompt(question, answers);
-                    return prompt_1.render().then(function (result) { return answers[question.name] = question.filter ? question.filter(result) : result; });
+                    const prompt = factory_1.default.createPrompt(question, answers);
+                    return prompt.render().then(result => answers[question.name] = question.filter ? question.filter(result) : result);
                 }
             });
         }, Promise.resolve());
         return promise
-            .then(function () {
-            _this.outChannel.clear();
-            _this.outChannel.append(_this.outBuffer);
+            .then(() => {
+            this.outChannel.clear();
+            this.outChannel.append(this.outBuffer);
             callback(answers);
             return answers;
         });
-    };
-    CodeAdapter.prototype.diff = function (actual, expected) {
-        var _this = this;
+    }
+    diff(actual, expected) {
         this.outChannel.clear();
-        var result = diff.diffLines(actual, expected);
-        result.map(function (part) {
-            var prefix = ' ';
+        let result = diff.diffLines(actual, expected);
+        result.map(part => {
+            let prefix = ' ';
             if (part.added === true) {
                 prefix = '+';
             }
             else if (part.removed === true) {
                 prefix = '-';
             }
-            part.value = part.value.split('\n').map(function (line) {
+            part.value = part.value.split('\n').map(line => {
                 if (line.trim().length === 0) {
                     return line;
                 }
-                return "" + prefix + line;
+                return `${prefix}${line}`;
             }).join('\n');
-            _this.outChannel.append(part.value);
+            this.outChannel.append(part.value);
         });
-    };
-    return CodeAdapter;
-}());
-exports["default"] = CodeAdapter;
+    }
+}
+exports.default = CodeAdapter;
+//# sourceMappingURL=../../../src/out/yo/yo/adapter.js.map

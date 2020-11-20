@@ -1,15 +1,13 @@
 "use strict";
-exports.__esModule = true;
-var input_1 = require("./input");
-var password_1 = require("./password");
-var list_1 = require("./list");
-var confirm_1 = require("./confirm");
-var checkbox_1 = require("./checkbox");
-var expand_1 = require("./expand");
-var PromptFactory = /** @class */ (function () {
-    function PromptFactory() {
-    }
-    PromptFactory.createPrompt = function (question, answers) {
+Object.defineProperty(exports, "__esModule", { value: true });
+const input_1 = require("./input");
+const password_1 = require("./password");
+const list_1 = require("./list");
+const confirm_1 = require("./confirm");
+const checkbox_1 = require("./checkbox");
+const expand_1 = require("./expand");
+class PromptFactory {
+    static createPrompt(question, answers) {
         /**
          * TODO:
          *   - folder
@@ -17,21 +15,21 @@ var PromptFactory = /** @class */ (function () {
         switch (question.type || 'input') {
             case 'string':
             case 'input':
-                return new input_1["default"](question, answers);
+                return new input_1.default(question, answers);
             case 'password':
-                return new password_1["default"](question, answers);
+                return new password_1.default(question, answers);
             case 'list':
-                return new list_1["default"](question);
+                return new list_1.default(question);
             case 'confirm':
-                return new confirm_1["default"](question);
+                return new confirm_1.default(question);
             case 'checkbox':
-                return new checkbox_1["default"](question);
+                return new checkbox_1.default(question);
             case 'expand':
-                return new expand_1["default"](question);
+                return new expand_1.default(question);
             default:
-                throw new Error("Could not find a prompt for question type " + question.type);
+                throw new Error(`Could not find a prompt for question type ${question.type}`);
         }
-    };
-    return PromptFactory;
-}());
-exports["default"] = PromptFactory;
+    }
+}
+exports.default = PromptFactory;
+//# sourceMappingURL=../../../src/out/yo/prompts/factory.js.map
