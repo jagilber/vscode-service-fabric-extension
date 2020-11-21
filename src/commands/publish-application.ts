@@ -1,7 +1,10 @@
+import { env } from "process";
+
 import * as vscode from "vscode";
 import * as vars from './osdetector';
 const exec = require('child_process').exec;
-
+const fsWatcher = require('fs'); 
+const outputFile = "/temp/test.txt";
 var builScriptExtension;
 var installScriptExtension;
 
@@ -56,20 +59,41 @@ async function deployToUnsecureCluster(clusterInfo) {
 }
 
 async function deployToSecureClusterCert(clusterInfo) {
+
     const writeEmitter = new vscode.EventEmitter<string>();
+    var subterminal: vscode.Terminal = vscode.window.createTerminal('ServiceFabric');
+    fsWatcher.watch(outputFile, (eventType, filename) => { 
+        if (fsWatcher.readFileSync(outputFile, { encoding: 'utf8', flag: 'r' }).length < 1) {
+            return;
+        }
+
+        console.log("\nThe file", filename, "was modified!"); 
+        console.log("The type of change was:", eventType); 
+        console.log(fsWatcher.readFileSync(outputFile,{encoding:'utf8', flag:'r'}));
+        terminal.sendText(fsWatcher.readFileSync(outputFile, { encoding: 'utf8', flag: 'r' }),true);
+        //terminal.sendText('\n\n',true);
+        fsWatcher.writeFileSync(outputFile,"");
+      }); 
+
+
     const pty: vscode.Pseudoterminal = {
         onDidWrite: writeEmitter.event,
-        open: () => { writeEmitter.fire('Opening Terminal') },
+        open: () => { 
+            writeEmitter.fire('Opening Terminal'); 
+            writeEmitter.fire('\r\n'); 
+        },
         close: () => { },
-        handleInput: data => writeEmitter.fire(data)
-        //handleInput: data => writeEmitter.fire(data === '\r' ? '\r\n' : data)
+        handleInput: data => {
+            writeEmitter.fire(data.replace(/\r/g,'\r\n',));
+            //subterminal.sendText(data);
+        },
     };
-    var terminal = vscode.window.createTerminal({ name: 'Local echo', pty: pty });
 
-    await terminal.processId
-    await terminal.show();    
-    await pty.onDidWrite(() => console.log);
-    //var terminal: vscode.Terminal = vscode.window.createTerminal('ServiceFabric');
+    var terminal = vscode.window.createTerminal({ name: 'Local echo', pty: pty });
+    //var terminal = vscode.window.createTerminal({ name: 'Local echo', pty: pty });
+  //  await pty.onDidWrite(() => console.log);
+    //vscode.env.shell = 'pwsh';
+//vscode.window.registerTerminalLinkProvider
     
     if (vars._isLinux || vars._isMacintosh) {
         exec('sfctl cluster select --endpoint ' + clusterInfo.ConnectionIPOrURL + ':' + clusterInfo.ConnectionPort + ' --cert ' + clusterInfo.ClientCert + ' --key ' + clusterInfo.ClientKey + ' --no-verify', function (err, stdout, stderr) {
@@ -82,10 +106,12 @@ async function deployToSecureClusterCert(clusterInfo) {
     }
     else if (vars._isWindows) {
         terminal.show();
-        terminal.sendText('import-module servicefabric;\r\n');
-        terminal.sendText("Connect-ServiceFabricCluster -ConnectionEndPoint " + clusterInfo.ConnectionIPOrURL + ':' + clusterInfo.ConnectionPort + " -X509Credential -ServerCertThumbprint " + clusterInfo.ServerCertThumbprint + " -FindType FindByThumbprint -FindValue " + clusterInfo.ClientCertThumbprint + " -StoreLocation CurrentUser -StoreName My;\r\n");
+        subterminal.sendText('import-module servicefabric >>' + outputFile);
+        //terminal.sendText('\r');
+        subterminal.sendText("Connect-ServiceFabricCluster -ConnectionEndPoint " + clusterInfo.ConnectionIPOrURL + ':' + clusterInfo.ConnectionPort + " -X509Credential -ServerCertThumbprint " + clusterInfo.ServerCertThumbprint + " -FindType FindByThumbprint -FindValue " + clusterInfo.ClientCertThumbprint + " -StoreLocation CurrentUser -StoreName My >>" + outputFile);
+        //terminal.sendText('\r');
     }
-    installApplication(terminal);
+    installApplication(subterminal);
 }
 
 async function installApplication(terminal: vscode.Terminal) {
@@ -97,9 +123,10 @@ async function installApplication(terminal: vscode.Terminal) {
         return;
     }
     const relativeInstallPath = vscode.workspace.asRelativePath(uri[0]);
-    terminal.sendText('./' + relativeInstallPath + '\r\n');
-    terminal.show();
+    terminal.sendText('./' + relativeInstallPath + ' >>' + outputFile);
+//    terminal.show();
 }
+
 
 async function readCloudProfile() {
     var fs = require('fs');

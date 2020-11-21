@@ -39,6 +39,32 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-sf.publishApplication', publishApplication));
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-sf.removeApplication', removeApplication));
 	context.subscriptions.push(vscode.commands.registerCommand('vscode-sf.upgradeApplication', upgradeApplication));
+	// vscode.window.registerTerminalLinkProvider
+	context.subscriptions.push(vscode.commands.registerCommand('vscode-sf.registerTerminalLinkProvider', () => {
+		(<any>vscode.window).registerTerminalLinkProvider({
+			provideTerminalLinks: (context: any, token: vscode.CancellationToken) => {
+				// Detect the first instance of the word "link" if it exists and linkify it
+				console.log(context as string);
+				const startIndex = 0;//(context.line as string).indexOf('link');
+				const contextLength = (context.line as string).length;
+				if (startIndex === contextLength) {
+					return [];
+				}
+				return [
+					{
+						startIndex,
+						length: contextLength,
+						tooltip: 'Show a notification',
+						// You can return data in this object to access inside handleTerminalLink
+						data: (context.line as string) //'Example data'
+					}
+				];
+			},
+			handleTerminalLink: (link: any) => {
+				vscode.window.showInformationMessage(`Link activated (data = ${link.data})`);
+			}
+		});
+	}));
 }
 
 // this method is called when your extension is deactivated

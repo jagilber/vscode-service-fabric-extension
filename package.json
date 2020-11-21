@@ -32,7 +32,8 @@
 		"onCommand:vscode-sf.deployApplication",
 		"onCommand:vscode-sf.publishApplication",
 		"onCommand:vscode-sf.removeApplication",
-		"onCommand:vscode-sf.upgradeApplication"
+		"onCommand:vscode-sf.upgradeApplication",
+		"onCommand:vscode-sf.registerTerminalLinkProvider"
 	],
 	"main": "./out/src/extension",
 	"contributes": {
@@ -75,6 +76,11 @@
 			{
 				"command": "vscode-sf.upgradeApplication",
 				"title": "Upgrade Application",
+				"category": "Service Fabric"
+			},
+			{
+				"command": "vscode-sf.registerTerminalLinkProvider",
+				"title": "Register Terminal Provider",
 				"category": "Service Fabric"
 			}
 		],
