@@ -36,7 +36,6 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 exports.__esModule = true;
-exports.quickPickServiceType = exports.quickPickLanguage = void 0;
 var vscode = require("vscode");
 function quickPickLanguage() {
     return __awaiter(this, void 0, void 0, function () {
