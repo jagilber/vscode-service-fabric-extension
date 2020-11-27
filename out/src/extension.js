@@ -1,9 +1,9 @@
 "use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.deactivate = exports.activate = void 0;
-debugger;
+//debugger;
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.deactivate = exports.activate = void 0;
 const vscode = require("vscode");
 const pwsh = require("./commands/powershell-terminal");
 const add_sf_service_1 = require("./commands/add-sf-service");
@@ -17,11 +17,9 @@ const upgrade_application_1 = require("./commands/upgrade-application");
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 function activate(context) {
-    var t = new pwsh.powershellTerminal('ServiceFabric');
-    t.send('dir');
-    t.receive();
     // Use the console to output diagnostic information (console.log) and errors (console.error)
     // This line of code will only be executed once when your extension is activated
+    var t = new pwsh.powershellTerminal('ServiceFabric');
     console.log('Congratulations, your extension "service-fabric-services" is now active!');
     // The command has been defined in the package.json file
     // Now provide the implementation of the command with registerCommand

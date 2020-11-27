@@ -10,6 +10,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.publishApplication = void 0;
+const pwsh = require("./powershell-terminal");
 const vscode = require("vscode");
 const vars = require("./osdetector");
 const exec = require('child_process').exec;
@@ -25,6 +26,13 @@ else {
 }
 function publishApplication() {
     return __awaiter(this, void 0, void 0, function* () {
+        var t = new pwsh.powershellTerminal('ServiceFabric');
+        //await t.initialize('ServiceFabric');
+        // var s: string = await t.send('dir');
+        // var r: string = await t.receive(s);
+        // var j: string = await t.readJson(r);
+        //
+        console.log(`finished await ${yield t.readJson(yield t.send('dir'))}`);
         yield readCloudProfile();
     });
 }
@@ -77,7 +85,6 @@ function deployToSecureClusterCert(clusterInfo) {
             //handleInput: data => writeEmitter.fire(data === '\r' ? '\r\n' : data)
         };
         var terminal = vscode.window.createTerminal({ name: 'Local echo', pty: pty });
-        yield terminal.processId;
         yield terminal.show();
         yield pty.onDidWrite(() => console.log);
         //var terminal: vscode.Terminal = vscode.window.createTerminal('ServiceFabric');
