@@ -26,8 +26,8 @@ else {
 }
 function publishApplication() {
     return __awaiter(this, void 0, void 0, function* () {
-        var t = new pwsh.powershellTerminal('ServiceFabric');
-        //await t.initialize('ServiceFabric');
+        var t = new pwsh.powershellTerminal();
+        yield t.initialize('ServiceFabric');
         // var s: string = await t.send('dir');
         // var r: string = await t.receive(s);
         // var j: string = await t.readJson(r);

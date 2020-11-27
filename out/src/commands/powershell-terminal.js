@@ -19,36 +19,66 @@ const os = require('os');
 const eventEmitter = require('events');
 const emitter = new eventEmitter();
 class powershellTerminal {
-    constructor(terminalName) {
+    constructor() {
         this.terminal = null;
         this.fileWatcher = null;
         this.tempFile = null;
         this.writeEmitter = new vscode.EventEmitter();
         this.requestCounter = 0;
-        if (powershellTerminal.tempDir === null) {
-            fs.mkdtemp(path.join(os.tmpdir(), 'pst-'), (err, directory) => {
-                if (err) {
-                    throw err;
+        //   this.initialize();
+    }
+    initialize(terminalName) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return yield new Promise((resolve, reject) => {
+                if (powershellTerminal.tempDir === null) {
+                    fs.mkdtemp(path.join(os.tmpdir(), 'pst-'), (err, directory) => {
+                        if (err) {
+                            throw err;
+                        }
+                        console.log(directory);
+                        powershellTerminal.tempDir = directory.replace(/\\/g, '/');
+                        this.createTerminal(terminalName);
+                        this.send(this.outFunctionGenerator(), false);
+                        fs.watch(powershellTerminal.tempDir, (eventType, filename) => {
+                            console.log(`event type is: ${eventType}`);
+                            if (filename) {
+                                console.log(`filename provided: ${filename}`);
+                            }
+                            else {
+                                console.log('filename not provided');
+                            }
+                            emitter.emit('change', filename);
+                        });
+                        resolve(undefined);
+                    });
                 }
-                console.log(directory);
-                powershellTerminal.tempDir = directory.replace(/\\/g, '/');
-                fs.watch(powershellTerminal.tempDir, (eventType, filename) => {
-                    console.log(`event type is: ${eventType}`);
-                    if (filename) {
-                        console.log(`filename provided: ${filename}`);
-                    }
-                    else {
-                        console.log('filename not provided');
-                    }
-                    emitter.emit('change', filename);
-                });
             });
-        }
-        this.createTerminal(terminalName);
+        });
+    }
+    outFunctionGenerator() {
+        return '$global:requestCounter = 0;\
+            function out-json{\
+                [CmdletBinding()]\
+                Param(\
+                    [Parameter(ValueFromPipeline)]\
+                    [string]$item,\
+                    [string]$fileDir = "' + powershellTerminal.tempDir + '",\
+                    [int]$depth = 1,\
+                    [int]$counter = 0\
+                )\
+                if($counter -eq 0){\
+                    $counter = ++$global:requestCounter;\
+                }\
+                $fileName = $fileDir + "\\" + $counter + ".json";\
+                $errorActionPreference = "continue";\
+                write-host "$item";\
+                $r = . $item;\
+                write-host ($r| fl * | out-string);\
+                $r | convertto-json -depth $depth | out-file "$fileName";\
+            }';
     }
     waitForEvent(emitter, pendingFileName) {
         return __awaiter(this, void 0, void 0, function* () {
-            //waitForEvent<T>(emitter, event) {
             return yield new Promise((resolve, reject) => {
                 emitter.once('change', (fileName) => {
                     //console.log(emitter);
@@ -66,12 +96,18 @@ class powershellTerminal {
     }
     send(terminalCommand, wait = true) {
         return __awaiter(this, void 0, void 0, function* () {
-            //send(terminalCommand: string, wait: boolean = true): Promise<string> {
-            //send(terminalCommand: string, wait: boolean = true): string {
             return yield new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
-                //var promise: Promise<string> = new Promise(() => {
                 var fileName = powershellTerminal.tempDir + '/' + ++this.requestCounter + '.json';
-                terminalCommand += ' | convertto-json | out-file ' + fileName + '\r\n';
+                //terminalCommand += ' | convertto-json | out-file ' + fileName + '\r\n';
+                if (wait) {
+                    //terminalCommand += ' | out-json("' + fileName + '")\r\n';
+                    //terminalCommand = 'out-json -item "'+ terminalCommand +'" -filename "' + fileName + '";\r\n';
+                    terminalCommand = '"' + terminalCommand + '" | out-json -counter ' + this.requestCounter + ';\r\n';
+                }
+                else {
+                    terminalCommand += ';\r\n';
+                }
+                console.log(terminalCommand);
                 this.terminal.sendText(terminalCommand);
                 if (wait) {
                     yield this.waitForEvent(emitter, fileName);

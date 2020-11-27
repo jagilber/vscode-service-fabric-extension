@@ -17,8 +17,8 @@ else {
 }
 
 export async function publishApplication() {
-    var t = new pwsh.powershellTerminal('ServiceFabric');
-    //await t.initialize('ServiceFabric');
+    var t = new pwsh.powershellTerminal();
+    await t.initialize('ServiceFabric');
     // var s: string = await t.send('dir');
     // var r: string = await t.receive(s);
     // var j: string = await t.readJson(r);
