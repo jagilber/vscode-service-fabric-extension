@@ -16,7 +16,9 @@ import { upgradeApplication } from './commands/upgrade-application';
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-
+var t = new pwsh.powershellTerminal('ServiceFabric');
+t.send('dir');
+t.receive();
 	// Use the console to output diagnostic information (console.log) and errors (console.error)
 	// This line of code will only be executed once when your extension is activated
 	console.log('Congratulations, your extension "service-fabric-services" is now active!');
