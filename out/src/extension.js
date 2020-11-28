@@ -5,6 +5,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deactivate = exports.activate = void 0;
 const vscode = require("vscode");
+const pwsh = require("./commands/powershell-terminal");
 const add_sf_service_1 = require("./commands/add-sf-service");
 const build_application_1 = require("./commands/build-application");
 const clean_application_java_1 = require("./commands/clean-application-java");
@@ -13,13 +14,13 @@ const deploy_application_1 = require("./commands/deploy-application");
 const publish_application_1 = require("./commands/publish-application");
 const remove_application_1 = require("./commands/remove-application");
 const upgrade_application_1 = require("./commands/upgrade-application");
+const terminal = null;
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 function activate(context) {
     // Use the console to output diagnostic information (console.log) and errors (console.error)
     // This line of code will only be executed once when your extension is activated
-    //var t = new pwsh.powershellTerminal('ServiceFabric');
-    //var t = new pwsh.powershellTerminal();
+    this.terminal = new pwsh.powershellTerminal();
     console.log('Congratulations, your extension "service-fabric-services" is now active!');
     // The command has been defined in the package.json file
     // Now provide the implementation of the command with registerCommand
@@ -68,6 +69,10 @@ function activate(context) {
 }
 exports.activate = activate;
 // this method is called when your extension is deactivated
-function deactivate() { }
+function deactivate() {
+    if (this.terminal !== null) {
+        this.terminal.disposeTerminal();
+    }
+}
 exports.deactivate = deactivate;
 //# sourceMappingURL=extension.js.map

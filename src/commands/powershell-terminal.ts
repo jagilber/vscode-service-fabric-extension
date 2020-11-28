@@ -51,14 +51,14 @@ export class powershellTerminal {
         return true;
     }
 
-    async disposeTerminal():Promise<unknown> {
-        return await new Promise((resolve, reject) =>{
+    async disposeTerminal(): Promise<unknown> {
+        return await new Promise((resolve, reject) => {
             if (this.terminal !== null) {
                 console.log('disposing terminal');
                 this.terminal.dispose();
             }
 
-            if(powershellTerminal.tempDir !== null){
+            if (powershellTerminal.tempDir !== null) {
                 console.log(`removing temp dir: ${powershellTerminal.tempDir}`);
                 fs.rmdir(powershellTerminal.tempDir, {
                     maxRetries: 3,
@@ -71,7 +71,7 @@ export class powershellTerminal {
         });
     }
 
-    async initialize(terminalName: string):Promise<unknown> {
+    async initialize(terminalName: string): Promise<unknown> {
         return await new Promise((resolve, reject) => {
 
             if (powershellTerminal.tempDir === null) {
@@ -85,6 +85,7 @@ export class powershellTerminal {
 
                     this.createTerminal(terminalName);
                     this.send(this.outFunctionGenerator(), false);
+                    this.send(`write-host "using: ${powershellTerminal.tempDir}"`, false);
 
                     fs.watch(powershellTerminal.tempDir, (eventType, filename) => {
                         console.log(`event type is: ${eventType}`);
@@ -110,7 +111,7 @@ export class powershellTerminal {
                     [Parameter(ValueFromPipeline)]\
                     [string]$item,\
                     [string]$fileDir = "' + powershellTerminal.tempDir + '",\
-                    [int]$depth = 1,\
+                    [int]$depth = 2,\
                     [int]$counter = 0\
                 )\
                 if($counter -eq 0){\
@@ -123,24 +124,35 @@ export class powershellTerminal {
                 $errorActionPreference = "continue";\
                 write-host "$item";\
                 try {\
-                    $r = . $item;\
-                    write-host ($r| fl * | out-string);\
-                    $r | convertto-json -depth $depth | out-file "$fileName";\
+                    $r = iex $item;\
+                    write-host ($r | format-list * | out-string);\
+                    $r | convertto-json -depth $depth -warningaction silentlycontinue | out-file "$fileName";\
                 }\
                 catch {\
-                    $error | convertto-json -depth $depth | out-file "$fileName";\
+                    write-error ($error | format-list * | out-string);\
+                    $error | convertto-json -depth $depth -warningaction silentlycontinue | out-file "$fileName";\
                 }\
-            }';
+            }\
+            cls';
     }
 
-    async readJson(jsonFile: string): Promise<JSON> {
+    async readJson(jsonFile: string, nullOk:boolean = true): Promise<JSON> {
         return await new Promise((resolve, reject) => {
-            fs.readFile(jsonFile, 'utf8', (err, jsonString) => {
+            fs.readFile(jsonFile, 'utf8', (err, jsonString:string) => {
                 if (err) {
                     console.log("json read failed:", err);
                     reject();
                 }
                 console.log('json data:', jsonString);
+                if(jsonString.length < 2){
+                    console.log("json read failed: empty file", jsonString);
+                    if(nullOk){
+                        resolve(JSON);
+                    }
+                    else{
+                        reject(jsonString);
+                    }
+                }
                 resolve(JSON.parse(jsonString));
             });
         });
@@ -171,19 +183,38 @@ export class powershellTerminal {
         this.terminal.show();
     }
 
-    async sendReceiveText(terminalCommand: string): Promise<string> {
+    async sendReceive(terminalCommand: string, checkForErrors: boolean = true): Promise<JSON> {
         return await new Promise(async (resolve, reject) => {
-            resolve(await this.readJson(await this.send(terminalCommand, true)));
+            var resultJson: JSON = await this.readJson(await this.send(terminalCommand, true));
+            if (checkForErrors) {
+                for (var key in resultJson) {
+                    console.log(`checking key: ${key}`);
+                    if (resultJson[key].hasOwnProperty('Exception')) {
+                        reject(resultJson);
+                    }
+                }
+            }
+            resolve(resultJson);
+        });
+    }
+
+    async sendReceiveText(terminalCommand: string, checkForErrors: boolean = true): Promise<string> {
+        return await new Promise(async (resolve, reject) => {
+            var resultText: string = await this.readText(await this.send(terminalCommand, true));
+            if (checkForErrors) {
+                if (resultText.startsWith('Exception') || resultText.startsWith('Error')) {
+                    reject(resultText);
+                }
+            }
+            resolve(resultText);
         });
     }
 
     async send(terminalCommand: string, wait: boolean = true): Promise<string> {
         return await new Promise(async (resolve, reject) => {
             var fileName: string = powershellTerminal.tempDir + '/' + ++this.requestCounter + '.json';
-            //terminalCommand += ' | convertto-json | out-file ' + fileName + '\r\n';
+
             if (wait) {
-                //terminalCommand += ' | out-json("' + fileName + '")\r\n';
-                //terminalCommand = 'out-json -item "'+ terminalCommand +'" -filename "' + fileName + '";\r\n';
                 terminalCommand = '"' + terminalCommand + '" | out-json -counter ' + this.requestCounter + ';\r\n';
             }
             else {
@@ -202,32 +233,32 @@ export class powershellTerminal {
     }
 
     sendText(terminalCommand: string): void {
-        var promise:Promise<string> = new Promise(async (resolve, reject) => {
+        var promise: Promise<string> = new Promise(async (resolve, reject) => {
             await this.send(terminalCommand, true);
             resolve(undefined);
         });
     }
 
-    waitForObject(objectParam): boolean {
-        while (objectParam === null) {
-            console.log(objectParam === null);
-            setTimeout(this.waitForObject, 1000, objectParam);
-        }
+    // waitForObject(objectParam): boolean {
+    //     while (objectParam === null) {
+    //         console.log(objectParam === null);
+    //         setTimeout(this.waitForObject, 1000, objectParam);
+    //     }
 
-        return true;
-    }
+    //     return true;
+    // }
 
     async waitForEvent<T>(emitter: NodeJS.EventEmitter, pendingFileName: string): Promise<unknown> {
         return await new Promise((resolve, reject) => {
             emitter.once('change', (fileName) => {
-                console.log(`emitter: ${fileName}`);
+                console.log(`waitforevent emitter: ${fileName}`);
                 if (pendingFileName.endsWith('/' + fileName)) {
                     console.log(`emitter: ${pendingFileName}`);
                     resolve(pendingFileName);
                 }
             });
             emitter.once('error', (event) => {
-                console.error(`emitter: ${event}`);
+                console.error(`waitforevent error emitter: ${event}`);
                 reject(event);
             });
         });
