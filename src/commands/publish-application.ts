@@ -62,6 +62,16 @@ async function deployToSecureClusterCert(clusterInfo) {
 
     const writeEmitter = new vscode.EventEmitter<string>();
     var subterminal: vscode.Terminal = vscode.window.createTerminal('ServiceFabric');
+    
+    fsWatcher.watchFile(outputFile,{
+        bigint: false,
+        persistent: true,
+        interval: 500
+    },(curr,prev) =>{
+        console.log('previous',prev.mtime);
+        console.log('current',curr.mtime);
+    });
+    
     fsWatcher.watch(outputFile, (eventType, filename) => { 
         if (fsWatcher.readFileSync(outputFile, { encoding: 'utf8', flag: 'r' }).length < 1) {
             return;
