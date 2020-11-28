@@ -69,30 +69,54 @@ class powershellTerminal {
                 if($counter -eq 0){\
                     $counter = ++$global:requestCounter;\
                 }\
+                else{\
+                    $global:requestCounter = $counter;\
+                }\
                 $fileName = $fileDir + "\\" + $counter + ".json";\
                 $errorActionPreference = "continue";\
                 write-host "$item";\
-                $r = . $item;\
-                write-host ($r| fl * | out-string);\
-                $r | convertto-json -depth $depth | out-file "$fileName";\
+                try {\
+                    $r = . $item;\
+                    write-host ($r| fl * | out-string);\
+                    $r | convertto-json -depth $depth | out-file "$fileName";\
+                }\
+                catch {\
+                    $error | convertto-json -depth $depth | out-file "$fileName";\
+                }\
             }';
     }
     waitForEvent(emitter, pendingFileName) {
         return __awaiter(this, void 0, void 0, function* () {
             return yield new Promise((resolve, reject) => {
                 emitter.once('change', (fileName) => {
-                    //console.log(emitter);
-                    if (pendingFileName.endsWith(fileName)) {
-                        console.log(pendingFileName);
+                    console.log(`emitter: ${fileName}`);
+                    if (pendingFileName.endsWith('/' + fileName)) {
+                        console.log(`emitter: ${pendingFileName}`);
                         resolve(pendingFileName);
                     }
                 });
                 emitter.once('error', (event) => {
-                    console.error(event);
+                    console.error(`emitter: ${event}`);
                     reject(event);
                 });
             });
         });
+    }
+    show() {
+        this.terminal.show();
+    }
+    sendReceiveText(terminalCommand) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return yield new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
+                resolve(yield this.readJson(yield this.send(terminalCommand, true)));
+            }));
+        });
+    }
+    sendText(terminalCommand) {
+        var promise = new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
+            yield this.send(terminalCommand, true);
+            resolve(undefined);
+        }));
     }
     send(terminalCommand, wait = true) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -137,7 +161,6 @@ class powershellTerminal {
                 console.log('receive returning');
                 resolve(jsonFile);
             }));
-            //  });
         });
     }
     createTerminal(terminalName) {
@@ -175,9 +198,23 @@ class powershellTerminal {
     }
     disposeTerminal() {
         return __awaiter(this, void 0, void 0, function* () {
-            if (this.terminal !== null) {
-                yield this.send("stop-transcript");
-            }
+            return yield new Promise((resolve, reject) => {
+                if (this.terminal !== null) {
+                    //await this.sendText("stop-transcript");
+                    console.log('disposing terminal');
+                    this.terminal.dispose();
+                }
+                if (powershellTerminal.tempDir !== null) {
+                    console.log(`removing temp dir: ${powershellTerminal.tempDir}`);
+                    fs.rmdir(powershellTerminal.tempDir, {
+                        maxRetries: 3,
+                        recursive: true,
+                        retryDelay: 1000
+                    });
+                    console.log(`removed temp dir: ${powershellTerminal.tempDir}`);
+                }
+                resolve(undefined);
+            });
         });
     }
 }
