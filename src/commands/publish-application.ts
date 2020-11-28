@@ -17,13 +17,13 @@ else {
 }
 
 export async function publishApplication() {
-    await terminal.initialize('ServiceFabric');
+    await terminal.initialize('Service Fabric');
+    // var results:JSON = await terminal.sendReceive('import-module servicefabric');
+	// console.log(`results: ${results}`);
     await readCloudProfile();
 }
 
 async function deployToUnsecureCluster(clusterInfo) {
-    //var terminal: vscode.Terminal = vscode.window.createTerminal('ServiceFabric');
-    terminal.sendText('import-module servicefabric;');
     if (clusterInfo.ConnectionIPOrURL.length > 0) {
         if (vars._isLinux || vars._isMacintosh) {
             exec('sfctl cluster select --endpoint ' + clusterInfo.ConnectionIPOrURL + ':' + clusterInfo.ConnectionPort, function (err, stdout, stderr) {
@@ -69,9 +69,6 @@ async function deployToSecureClusterCert(clusterInfo) {
         });
     }
     else if (vars._isWindows) {
-        terminal.show();
-        var results:JSON = await terminal.sendReceive('import-module servicefabric');
-        console.log(`results: ${results}`);
         var connectResults:JSON = await terminal.sendReceive("Connect-ServiceFabricCluster -ConnectionEndPoint " + clusterInfo.ConnectionIPOrURL + ':' + clusterInfo.ConnectionPort + " -X509Credential -ServerCertThumbprint " + clusterInfo.ServerCertThumbprint + " -FindType FindByThumbprint -FindValue " + clusterInfo.ClientCertThumbprint + " -StoreLocation CurrentUser -StoreName My");
         console.log(`results: ${connectResults}`);
     }
@@ -87,7 +84,7 @@ async function installApplication(terminal: pwsh.powershellTerminal) {
         return;
     }
     const relativeInstallPath = vscode.workspace.asRelativePath(uri[0]);
-    terminal.sendText('./' + relativeInstallPath);
+    terminal.sendReceiveText('./' + relativeInstallPath);
 }
 
 

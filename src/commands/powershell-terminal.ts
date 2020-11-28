@@ -22,6 +22,20 @@ export class powershellTerminal {
         //   this.initialize();
     }
 
+    async addFileWatcher(): Promise<undefined> {
+        return await new Promise((resolve, reject) => {
+            fs.watch(powershellTerminal.tempDir, (eventType, filename) => {
+                console.log(`event type is: ${eventType}`);
+                if (filename) {
+                    console.log(`filename provided: ${filename}`);
+                } else {
+                    console.log('filename not provided');
+                }
+                emitter.emit('change', filename);
+            });
+            resolve(undefined);
+        });
+    }
     createTerminal(terminalName: string): boolean {
         if (vscode.window.terminals.find(x => x.name === terminalName)) {
             console.log(`found existing terminal ${terminalName}`);
@@ -29,19 +43,21 @@ export class powershellTerminal {
         }
         else {
             this.terminal = vscode.window.createTerminal(terminalName);
-        }
 
-        if (vars._isLinux || vars._isMacintosh) {
-            exec('sfctl cluster select --endpoint', function (err, stdout, stderr) {
-                if (err) {
-                    vscode.window.showErrorMessage("Could not connect to cluster.");
-                    console.log(err);
-                    return;
-                }
-            });
-        }
-        else if (vars._isWindows) {
-            this.terminal.show();
+            if (vars._isLinux || vars._isMacintosh) {
+                exec('sfctl cluster select --endpoint', function (err, stdout, stderr) {
+                    if (err) {
+                        vscode.window.showErrorMessage("Could not connect to cluster.");
+                        console.log(err);
+                        return;
+                    }
+                });
+            }
+            else if (vars._isWindows) {
+                this.send(this.outFunctionGenerator(), false);
+                this.send('$PSModuleAutoLoadingPreference = 2', false);
+                this.show();
+            }
         }
 
         if (this.terminal === null) {
@@ -49,6 +65,17 @@ export class powershellTerminal {
         }
 
         return true;
+    }
+
+    async deleteJsonFile(jsonFile: string): Promise<unknown> {
+        return await new Promise((resolve, reject) => {
+            if (fs.existsSync(jsonFile)) {
+                console.log(`removing jsonFile: ${jsonFile}`);
+                fs.unlinkSync(jsonFile);
+                console.log(`removed jsonFile: ${jsonFile}`);
+            }
+            resolve(jsonFile);
+        });
     }
 
     async disposeTerminal(): Promise<unknown> {
@@ -60,7 +87,7 @@ export class powershellTerminal {
 
             if (powershellTerminal.tempDir !== null) {
                 console.log(`removing temp dir: ${powershellTerminal.tempDir}`);
-                fs.rmdir(powershellTerminal.tempDir, {
+                fs.rmdirSync(powershellTerminal.tempDir, {
                     maxRetries: 3,
                     recursive: true,
                     retryDelay: 1000
@@ -71,11 +98,14 @@ export class powershellTerminal {
         });
     }
 
-    async initialize(terminalName: string): Promise<unknown> {
-        return await new Promise((resolve, reject) => {
+    hide(): void {
+        this.terminal.hide();
+    }
 
+    async initialize(terminalName: string): Promise<unknown> {
+        return await new Promise(async (resolve, reject) => {
             if (powershellTerminal.tempDir === null) {
-                fs.mkdtemp(path.join(os.tmpdir(), 'pst-'), (err, directory) => {
+                fs.mkdtemp(path.join(os.tmpdir(), 'pst-'), async (err, directory) => {
                     if (err) {
                         throw err;
                     }
@@ -84,21 +114,15 @@ export class powershellTerminal {
                     powershellTerminal.tempDir = directory.replace(/\\/g, '/');
 
                     this.createTerminal(terminalName);
-                    this.send(this.outFunctionGenerator(), false);
-                    this.send(`write-host "using: ${powershellTerminal.tempDir}"`, false);
-
-                    fs.watch(powershellTerminal.tempDir, (eventType, filename) => {
-                        console.log(`event type is: ${eventType}`);
-                        if (filename) {
-                            console.log(`filename provided: ${filename}`);
-                        } else {
-                            console.log('filename not provided');
-                        }
-                        emitter.emit('change', filename);
-                    });
-
+                    await this.send(`write-host "using: ${powershellTerminal.tempDir}"`, false);
+                    await this.addFileWatcher();
                     resolve(undefined);
                 });
+            }
+            else {
+                this.createTerminal(terminalName);
+                await this.addFileWatcher();
+                resolve(undefined);
             }
         });
     }
@@ -136,20 +160,20 @@ export class powershellTerminal {
             cls';
     }
 
-    async readJson(jsonFile: string, nullOk:boolean = true): Promise<JSON> {
+    async readJson(jsonFile: string, nullOk: boolean = true): Promise<JSON> {
         return await new Promise((resolve, reject) => {
-            fs.readFile(jsonFile, 'utf8', (err, jsonString:string) => {
+            fs.readFile(jsonFile, 'utf8', (err, jsonString: string) => {
                 if (err) {
                     console.log("json read failed:", err);
                     reject();
                 }
                 console.log('json data:', jsonString);
-                if(jsonString.length < 2){
+                if (jsonString.length < 2) {
                     console.log("json read failed: empty file", jsonString);
-                    if(nullOk){
+                    if (nullOk) {
                         resolve(JSON);
                     }
-                    else{
+                    else {
                         reject(jsonString);
                     }
                 }
@@ -177,10 +201,6 @@ export class powershellTerminal {
             console.log('receive returning');
             resolve(outputFile);
         });
-    }
-
-    show(): void {
-        this.terminal.show();
     }
 
     async sendReceive(terminalCommand: string, checkForErrors: boolean = true): Promise<JSON> {
@@ -239,14 +259,9 @@ export class powershellTerminal {
         });
     }
 
-    // waitForObject(objectParam): boolean {
-    //     while (objectParam === null) {
-    //         console.log(objectParam === null);
-    //         setTimeout(this.waitForObject, 1000, objectParam);
-    //     }
-
-    //     return true;
-    // }
+    show(): void {
+        this.terminal.show();
+    }
 
     async waitForEvent<T>(emitter: NodeJS.EventEmitter, pendingFileName: string): Promise<unknown> {
         return await new Promise((resolve, reject) => {
