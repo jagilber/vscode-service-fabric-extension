@@ -10,11 +10,10 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.publishApplication = void 0;
+const pwsh = require("./powershell-terminal");
 const vscode = require("vscode");
 const vars = require("./osdetector");
 const exec = require('child_process').exec;
-const fsWatcher = require('fs');
-const outputFile = "/temp/test.txt";
 var builScriptExtension;
 var installScriptExtension;
 if (vars._isWindows) {
@@ -27,6 +26,13 @@ else {
 }
 function publishApplication() {
     return __awaiter(this, void 0, void 0, function* () {
+        var t = new pwsh.powershellTerminal();
+        yield t.initialize('ServiceFabric');
+        // var s: string = await t.send('dir');
+        // var r: string = await t.receive(s);
+        // var j: string = await t.readJson(r);
+        //
+        console.log(`finished await ${yield t.readJson(yield t.send('dir'))}`);
         yield readCloudProfile();
     });
 }
@@ -71,43 +77,17 @@ function deployToUnsecureCluster(clusterInfo) {
 function deployToSecureClusterCert(clusterInfo) {
     return __awaiter(this, void 0, void 0, function* () {
         const writeEmitter = new vscode.EventEmitter();
-        var subterminal = vscode.window.createTerminal('ServiceFabric');
-        fsWatcher.watchFile(outputFile, {
-            bigint: false,
-            persistent: true,
-            interval: 500
-        }, (curr, prev) => {
-            console.log('previous', prev.mtime);
-            console.log('current', curr.mtime);
-        });
-        fsWatcher.watch(outputFile, (eventType, filename) => {
-            if (fsWatcher.readFileSync(outputFile, { encoding: 'utf8', flag: 'r' }).length < 1) {
-                return;
-            }
-            console.log("\nThe file", filename, "was modified!");
-            console.log("The type of change was:", eventType);
-            console.log(fsWatcher.readFileSync(outputFile, { encoding: 'utf8', flag: 'r' }));
-            terminal.sendText(fsWatcher.readFileSync(outputFile, { encoding: 'utf8', flag: 'r' }), true);
-            //terminal.sendText('\n\n',true);
-            fsWatcher.writeFileSync(outputFile, "");
-        });
         const pty = {
             onDidWrite: writeEmitter.event,
-            open: () => {
-                writeEmitter.fire('Opening Terminal');
-                writeEmitter.fire('\r\n');
-            },
+            open: () => { writeEmitter.fire('Opening Terminal'); },
             close: () => { },
-            handleInput: data => {
-                writeEmitter.fire(data.replace(/\r/g, '\r\n'));
-                //subterminal.sendText(data);
-            },
+            handleInput: data => writeEmitter.fire(data)
+            //handleInput: data => writeEmitter.fire(data === '\r' ? '\r\n' : data)
         };
         var terminal = vscode.window.createTerminal({ name: 'Local echo', pty: pty });
-        //var terminal = vscode.window.createTerminal({ name: 'Local echo', pty: pty });
-        //  await pty.onDidWrite(() => console.log);
-        //vscode.env.shell = 'pwsh';
-        //vscode.window.registerTerminalLinkProvider
+        yield terminal.show();
+        yield pty.onDidWrite(() => console.log);
+        //var terminal: vscode.Terminal = vscode.window.createTerminal('ServiceFabric');
         if (vars._isLinux || vars._isMacintosh) {
             exec('sfctl cluster select --endpoint ' + clusterInfo.ConnectionIPOrURL + ':' + clusterInfo.ConnectionPort + ' --cert ' + clusterInfo.ClientCert + ' --key ' + clusterInfo.ClientKey + ' --no-verify', function (err, stdout, stderr) {
                 if (err) {
@@ -119,12 +99,10 @@ function deployToSecureClusterCert(clusterInfo) {
         }
         else if (vars._isWindows) {
             terminal.show();
-            subterminal.sendText('import-module servicefabric >>' + outputFile);
-            //terminal.sendText('\r');
-            subterminal.sendText("Connect-ServiceFabricCluster -ConnectionEndPoint " + clusterInfo.ConnectionIPOrURL + ':' + clusterInfo.ConnectionPort + " -X509Credential -ServerCertThumbprint " + clusterInfo.ServerCertThumbprint + " -FindType FindByThumbprint -FindValue " + clusterInfo.ClientCertThumbprint + " -StoreLocation CurrentUser -StoreName My >>" + outputFile);
-            //terminal.sendText('\r');
+            terminal.sendText('import-module servicefabric;\r\n');
+            terminal.sendText("Connect-ServiceFabricCluster -ConnectionEndPoint " + clusterInfo.ConnectionIPOrURL + ':' + clusterInfo.ConnectionPort + " -X509Credential -ServerCertThumbprint " + clusterInfo.ServerCertThumbprint + " -FindType FindByThumbprint -FindValue " + clusterInfo.ClientCertThumbprint + " -StoreLocation CurrentUser -StoreName My;\r\n");
         }
-        installApplication(subterminal);
+        installApplication(terminal);
     });
 }
 function installApplication(terminal) {
@@ -137,8 +115,8 @@ function installApplication(terminal) {
             return;
         }
         const relativeInstallPath = vscode.workspace.asRelativePath(uri[0]);
-        terminal.sendText('./' + relativeInstallPath + ' >>' + outputFile);
-        //    terminal.show();
+        terminal.sendText('./' + relativeInstallPath + '\r\n');
+        terminal.show();
     });
 }
 function readCloudProfile() {

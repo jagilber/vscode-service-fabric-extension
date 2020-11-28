@@ -1,5 +1,4 @@
-import { env } from "process";
-
+import * as pwsh from './powershell-terminal';
 import * as vscode from "vscode";
 import * as vars from './osdetector';
 const exec = require('child_process').exec;
@@ -19,6 +18,15 @@ else {
 }
 
 export async function publishApplication() {
+    var t = new pwsh.powershellTerminal();
+    await t.initialize('ServiceFabric');
+    // var s: string = await t.send('dir');
+    // var r: string = await t.receive(s);
+    // var j: string = await t.readJson(r);
+    //
+
+     console.log(`finished await ${await t.readJson(await t.send('dir'))}`);
+
     await readCloudProfile();
 }
 
@@ -99,12 +107,10 @@ async function deployToSecureClusterCert(clusterInfo) {
         },
     };
 
-    var terminal = vscode.window.createTerminal({ name: 'Local echo', pty: pty });
-    //var terminal = vscode.window.createTerminal({ name: 'Local echo', pty: pty });
-  //  await pty.onDidWrite(() => console.log);
-    //vscode.env.shell = 'pwsh';
-//vscode.window.registerTerminalLinkProvider
-    
+    await terminal.show();
+    await pty.onDidWrite(() => console.log);
+    //var terminal: vscode.Terminal = vscode.window.createTerminal('ServiceFabric');
+
     if (vars._isLinux || vars._isMacintosh) {
         exec('sfctl cluster select --endpoint ' + clusterInfo.ConnectionIPOrURL + ':' + clusterInfo.ConnectionPort + ' --cert ' + clusterInfo.ClientCert + ' --key ' + clusterInfo.ClientKey + ' --no-verify', function (err, stdout, stderr) {
             if (err) {

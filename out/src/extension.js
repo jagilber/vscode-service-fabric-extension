@@ -1,4 +1,5 @@
 "use strict";
+//debugger;
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -17,6 +18,8 @@ const upgrade_application_1 = require("./commands/upgrade-application");
 function activate(context) {
     // Use the console to output diagnostic information (console.log) and errors (console.error)
     // This line of code will only be executed once when your extension is activated
+    //var t = new pwsh.powershellTerminal('ServiceFabric');
+    //var t = new pwsh.powershellTerminal();
     console.log('Congratulations, your extension "service-fabric-services" is now active!');
     // The command has been defined in the package.json file
     // Now provide the implementation of the command with registerCommand
@@ -36,32 +39,6 @@ function activate(context) {
     context.subscriptions.push(vscode.commands.registerCommand('vscode-sf.publishApplication', publish_application_1.publishApplication));
     context.subscriptions.push(vscode.commands.registerCommand('vscode-sf.removeApplication', remove_application_1.removeApplication));
     context.subscriptions.push(vscode.commands.registerCommand('vscode-sf.upgradeApplication', upgrade_application_1.upgradeApplication));
-    // vscode.window.registerTerminalLinkProvider
-    context.subscriptions.push(vscode.commands.registerCommand('vscode-sf.registerTerminalLinkProvider', () => {
-        vscode.window.registerTerminalLinkProvider({
-            provideTerminalLinks: (context, token) => {
-                // Detect the first instance of the word "link" if it exists and linkify it
-                console.log(context);
-                const startIndex = 0; //(context.line as string).indexOf('link');
-                const contextLength = context.line.length;
-                if (startIndex === contextLength) {
-                    return [];
-                }
-                return [
-                    {
-                        startIndex,
-                        length: contextLength,
-                        tooltip: 'Show a notification',
-                        // You can return data in this object to access inside handleTerminalLink
-                        data: context.line //'Example data'
-                    }
-                ];
-            },
-            handleTerminalLink: (link) => {
-                vscode.window.showInformationMessage(`Link activated (data = ${link.data})`);
-            }
-        });
-    }));
 }
 exports.activate = activate;
 // this method is called when your extension is deactivated

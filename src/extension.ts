@@ -1,7 +1,9 @@
+//debugger;
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 
 import * as vscode from 'vscode';
+import * as pwsh from './commands/powershell-terminal';
 import { addSFService } from './commands/add-sf-service';
 import { buildApplication } from './commands/build-application';
 import { cleanJavaApplication } from './commands/clean-application-java';
@@ -14,9 +16,11 @@ import { upgradeApplication } from './commands/upgrade-application';
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-
 	// Use the console to output diagnostic information (console.log) and errors (console.error)
 	// This line of code will only be executed once when your extension is activated
+	//var t = new pwsh.powershellTerminal('ServiceFabric');
+	//var t = new pwsh.powershellTerminal();
+
 	console.log('Congratulations, your extension "service-fabric-services" is now active!');
 
 	// The command has been defined in the package.json file
