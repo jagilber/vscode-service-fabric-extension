@@ -263,7 +263,7 @@ export class powershellTerminal {
     async waitForEvent<T>(emitter: NodeJS.EventEmitter, pendingFileName: string): Promise<unknown> {
         this.consoleLog(`waitForEvent waiting for: ${pendingFileName}`);
         return await new Promise(async (resolve, reject) => {
-            emitter.once('rename', async (fileName) => {
+            emitter.on('rename', async (fileName) => {
                 this.consoleLog(`waitForEvent rename emitter: ${fileName}`);
                 if (pendingFileName.endsWith('/' + fileName)) {
                     // to handle null/no output as rename is always first event
@@ -275,7 +275,7 @@ export class powershellTerminal {
                     resolve(pendingFileName);
                 }
             });
-            emitter.once('change', (fileName) => {
+            emitter.on('change', (fileName) => {
                 this.consoleLog(`waitForEvent change emitter: ${fileName}`);
                 if (pendingFileName.endsWith('/' + fileName)) {
                     this.consoleLog(`waitForEvent change emitted: ${pendingFileName}`);
@@ -283,7 +283,7 @@ export class powershellTerminal {
                     resolve(pendingFileName);
                 }
             });
-            emitter.once('error', (fileName) => {
+            emitter.on('error', (fileName) => {
                 if (pendingFileName.endsWith('/' + fileName)) {
                     console.error(`waitForEvent error emitter: ${fileName}`);
                     emitter.removeAllListeners();

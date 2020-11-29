@@ -267,7 +267,7 @@ class powershellTerminal {
         return __awaiter(this, void 0, void 0, function* () {
             this.consoleLog(`waitForEvent waiting for: ${pendingFileName}`);
             return yield new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
-                emitter.once('rename', (fileName) => __awaiter(this, void 0, void 0, function* () {
+                emitter.on('rename', (fileName) => __awaiter(this, void 0, void 0, function* () {
                     this.consoleLog(`waitForEvent rename emitter: ${fileName}`);
                     if (pendingFileName.endsWith('/' + fileName)) {
                         // to handle null/no output as rename is always first event
@@ -277,7 +277,7 @@ class powershellTerminal {
                         resolve(pendingFileName);
                     }
                 }));
-                emitter.once('change', (fileName) => {
+                emitter.on('change', (fileName) => {
                     this.consoleLog(`waitForEvent change emitter: ${fileName}`);
                     if (pendingFileName.endsWith('/' + fileName)) {
                         this.consoleLog(`waitForEvent change emitted: ${pendingFileName}`);
@@ -285,7 +285,7 @@ class powershellTerminal {
                         resolve(pendingFileName);
                     }
                 });
-                emitter.once('error', (fileName) => {
+                emitter.on('error', (fileName) => {
                     if (pendingFileName.endsWith('/' + fileName)) {
                         console.error(`waitForEvent error emitter: ${fileName}`);
                         emitter.removeAllListeners();
