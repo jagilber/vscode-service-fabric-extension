@@ -14,22 +14,22 @@ const pwsh = require("./powershell-terminal");
 const vscode = require("vscode");
 const vars = require("./osdetector");
 const exec = require('child_process').exec;
-var builScriptExtension;
+var buildScriptExtension;
 var installScriptExtension;
 const terminal = new pwsh.powershellTerminal();
 if (vars._isWindows) {
-    builScriptExtension = '.cmd';
+    buildScriptExtension = '.cmd';
     installScriptExtension = '.ps1';
 }
 else {
-    builScriptExtension = '.sh';
+    buildScriptExtension = '.sh';
     installScriptExtension = '.sh';
 }
 function publishApplication() {
     return __awaiter(this, void 0, void 0, function* () {
-        yield terminal.initialize('Service Fabric');
-        // var results:JSON = await terminal.sendReceive('import-module servicefabric');
-        // console.log(`results: ${results}`);
+        if (vars._isWindows) {
+            yield terminal.initialize('Service Fabric');
+        }
         yield readCloudProfile();
     });
 }
@@ -81,7 +81,11 @@ function deployToSecureClusterCert(clusterInfo) {
             });
         }
         else if (vars._isWindows) {
-            var connectResults = yield terminal.sendReceive("Connect-ServiceFabricCluster -ConnectionEndPoint " + clusterInfo.ConnectionIPOrURL + ':' + clusterInfo.ConnectionPort + " -X509Credential -ServerCertThumbprint " + clusterInfo.ServerCertThumbprint + " -FindType FindByThumbprint -FindValue " + clusterInfo.ClientCertThumbprint + " -StoreLocation CurrentUser -StoreName My");
+            var connectResults = yield terminal.sendReceive("Connect-ServiceFabricCluster -ConnectionEndPoint "
+                + clusterInfo.ConnectionIPOrURL + ':' + clusterInfo.ConnectionPort
+                + " -X509Credential -ServerCertThumbprint " + clusterInfo.ServerCertThumbprint
+                + " -FindType FindByThumbprint -FindValue " + clusterInfo.ClientCertThumbprint
+                + " -StoreLocation CurrentUser -StoreName My");
             console.log(`results: ${connectResults}`);
         }
         installApplication(terminal);

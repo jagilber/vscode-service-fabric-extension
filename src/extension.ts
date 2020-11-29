@@ -20,8 +20,26 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Use the console to output diagnostic information (console.log) and errors (console.error)
 	// This line of code will only be executed once when your extension is activated
 	await terminal.initialize('Service Fabric');
-	var results: JSON = await terminal.sendReceive('import-module servicefabric');
-	console.log(`results: ${results}`);
+	var results: JSON = null;
+	try {
+		results = await terminal.sendReceive('import-module servicefabric');
+		console.log(`results: ${results}`);
+	}
+	catch {
+		results = await terminal.sendReceive('iwr https://raw.githubusercontent.com/jagilber/powershellScripts/master/serviceFabric/sf-download-cab.ps1 \
+			-out $pwd/sf-download-cab.ps1;\
+			$pwd/sf-download-cab.ps1 -install $true');
+		console.log(`results: ${results}`);
+	}
+
+	// try {
+	// 	results = await terminal.sendReceive('import-module servicefabric');
+	// 	console.log(`results: ${results}`);
+	// }
+	// catch {
+	// 	results = await terminal.sendReceive('iwr https://raw.githubusercontent.com/jagilber/powershellScripts/master/serviceFabric/sf-install-sdk.ps1 -out $pwd/sf-install-sdk.ps1;$pwd/sf-install-sdk.ps1');
+	// 	console.log(`results: ${results}`);
+	// }
 
 	console.log('Congratulations, your extension "service-fabric-services" is now active!');
 

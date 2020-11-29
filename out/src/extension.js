@@ -31,8 +31,25 @@ function activate(context) {
         // Use the console to output diagnostic information (console.log) and errors (console.error)
         // This line of code will only be executed once when your extension is activated
         yield terminal.initialize('Service Fabric');
-        var results = yield terminal.sendReceive('import-module servicefabric');
-        console.log(`results: ${results}`);
+        var results = null;
+        try {
+            results = yield terminal.sendReceive('import-module servicefabric');
+            console.log(`results: ${results}`);
+        }
+        catch (_a) {
+            results = yield terminal.sendReceive('iwr https://raw.githubusercontent.com/jagilber/powershellScripts/master/serviceFabric/sf-download-cab.ps1 \
+			-out $pwd/sf-download-cab.ps1;\
+			$pwd/sf-download-cab.ps1 -install $true');
+            console.log(`results: ${results}`);
+        }
+        // try {
+        // 	results = await terminal.sendReceive('import-module servicefabric');
+        // 	console.log(`results: ${results}`);
+        // }
+        // catch {
+        // 	results = await terminal.sendReceive('iwr https://raw.githubusercontent.com/jagilber/powershellScripts/master/serviceFabric/sf-install-sdk.ps1 -out $pwd/sf-install-sdk.ps1;$pwd/sf-install-sdk.ps1');
+        // 	console.log(`results: ${results}`);
+        // }
         console.log('Congratulations, your extension "service-fabric-services" is now active!');
         // The command has been defined in the package.json file
         // Now provide the implementation of the command with registerCommand

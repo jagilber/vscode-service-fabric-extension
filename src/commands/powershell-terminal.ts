@@ -1,5 +1,3 @@
-import { FSWatcher } from "fs";
-import { runInThisContext } from "vm";
 import * as vscode from "vscode";
 import * as vars from './osdetector';
 const exec = require('child_process').exec;
@@ -14,12 +12,11 @@ export class powershellTerminal {
     terminal: vscode.Terminal = null;
     fileWatcher: vscode.FileSystemWatcher = null;
     static tempDir: string = null;
-    tempFile: string = null
+    tempFile: string = null;
     writeEmitter = new vscode.EventEmitter<vscode.Uri>();
-    requestCounter: number = 0;
+    static requestCounter: number = 0;
 
     constructor() {
-        //   this.initialize();
     }
 
     async addFileWatcher(): Promise<undefined> {
@@ -31,11 +28,12 @@ export class powershellTerminal {
                 } else {
                     console.log('filename not provided');
                 }
-                emitter.emit('change', filename);
+                emitter.emit(eventType, filename);
             });
             resolve(undefined);
         });
     }
+
     createTerminal(terminalName: string): boolean {
         if (vscode.window.terminals.find(x => x.name === terminalName)) {
             console.log(`found existing terminal ${terminalName}`);
@@ -59,12 +57,7 @@ export class powershellTerminal {
                 this.show();
             }
         }
-
-        if (this.terminal === null) {
-            return false;
-        }
-
-        return true;
+        return this.terminal === null;
     }
 
     async deleteJsonFile(jsonFile: string): Promise<unknown> {
@@ -161,15 +154,15 @@ export class powershellTerminal {
     }
 
     async readJson(jsonFile: string, nullOk: boolean = true): Promise<JSON> {
-        return await new Promise((resolve, reject) => {
-            fs.readFile(jsonFile, 'utf8', (err, jsonString: string) => {
+        return await new Promise(async (resolve, reject) => {
+            await fs.readFile(jsonFile, 'utf8', (err, jsonString: string) => {
                 if (err) {
                     console.log("json read failed:", err);
                     reject();
                 }
-                console.log('json data:', jsonString);
+                console.log(`json data:\r\n${jsonString}`);
                 if (jsonString.length < 2) {
-                    console.log("json read failed: empty file", jsonString);
+                    console.log(`json read failed: empty file: ${jsonString}`);
                     if (nullOk) {
                         resolve(JSON);
                     }
@@ -183,8 +176,8 @@ export class powershellTerminal {
     }
 
     async readText(textFile: string): Promise<string> {
-        return await new Promise((resolve, reject) => {
-            fs.readFile(textFile, 'utf8', (err, textString) => {
+        return await new Promise(async (resolve, reject) => {
+            await fs.readFile(textFile, 'utf8', (err, textString) => {
                 if (err) {
                     console.log("text read failed:", err);
                     reject();
@@ -232,10 +225,10 @@ export class powershellTerminal {
 
     async send(terminalCommand: string, wait: boolean = true): Promise<string> {
         return await new Promise(async (resolve, reject) => {
-            var fileName: string = powershellTerminal.tempDir + '/' + ++this.requestCounter + '.json';
+            var fileName: string = powershellTerminal.tempDir + '/' + ++powershellTerminal.requestCounter + '.json';
 
             if (wait) {
-                terminalCommand = '"' + terminalCommand + '" | out-json -counter ' + this.requestCounter + ';\r\n';
+                terminalCommand = '"' + terminalCommand + '" | out-json -counter ' + powershellTerminal.requestCounter + ';\r\n';
             }
             else {
                 terminalCommand += ';\r\n';
@@ -264,17 +257,44 @@ export class powershellTerminal {
     }
 
     async waitForEvent<T>(emitter: NodeJS.EventEmitter, pendingFileName: string): Promise<unknown> {
-        return await new Promise((resolve, reject) => {
-            emitter.once('change', (fileName) => {
-                console.log(`waitforevent emitter: ${fileName}`);
+        console.log(`waitForEvent waiting for: ${pendingFileName}`);
+        return await new Promise(async (resolve, reject) => {
+            emitter.on('rename', async (fileName) => {
+                console.log(`waitForEvent rename emitter: ${fileName}`);
                 if (pendingFileName.endsWith('/' + fileName)) {
-                    console.log(`emitter: ${pendingFileName}`);
+                    let timer;
+                    var timeout: Promise<boolean> = new Promise<boolean>((res) => timer = setTimeout(() => res(emitter.emit('change', fileName)), 10000));
+                    await Promise.race([await timeout, async () => {
+                           emitter.on('change', (fileName) => {
+                            console.log(`waitForEvent change emitter2: ${fileName}`);
+                            if (pendingFileName.endsWith('/' + fileName)) {
+                                console.log(`waitForEvent change emitted2: ${pendingFileName}`);
+                                emitter.removeAllListeners();
+                                resolve(pendingFileName);
+                            }
+                        });
+                    }]).finally(() => clearTimeout(timer));
+
+                    console.log(`waitForEvent rename emitted: ${pendingFileName}`);
+                    emitter.removeAllListeners();
                     resolve(pendingFileName);
                 }
             });
-            emitter.once('error', (event) => {
-                console.error(`waitforevent error emitter: ${event}`);
-                reject(event);
+
+            // emitter.on('change', (fileName) => {
+            //     console.log(`waitForEvent change emitter: ${fileName}`);
+            //     if (pendingFileName.endsWith('/' + fileName)) {
+            //         console.log(`waitForEvent change emitted: ${pendingFileName}`);
+            //         emitter.removeAllListeners();
+            //         resolve(pendingFileName);
+            //     }
+            // });
+            emitter.on('error', (fileName) => {
+                if (pendingFileName.endsWith('/' + fileName)) {
+                    console.error(`waitForEvent error emitter: ${fileName}`);
+                    emitter.removeAllListeners();
+                    reject(fileName);
+                }
             });
         });
     }

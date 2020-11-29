@@ -24,8 +24,6 @@ class powershellTerminal {
         this.fileWatcher = null;
         this.tempFile = null;
         this.writeEmitter = new vscode.EventEmitter();
-        this.requestCounter = 0;
-        //   this.initialize();
     }
     addFileWatcher() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -38,7 +36,7 @@ class powershellTerminal {
                     else {
                         console.log('filename not provided');
                     }
-                    emitter.emit('change', filename);
+                    emitter.emit(eventType, filename);
                 });
                 resolve(undefined);
             });
@@ -66,10 +64,7 @@ class powershellTerminal {
                 this.show();
             }
         }
-        if (this.terminal === null) {
-            return false;
-        }
-        return true;
+        return this.terminal === null;
     }
     deleteJsonFile(jsonFile) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -164,15 +159,15 @@ class powershellTerminal {
     }
     readJson(jsonFile, nullOk = true) {
         return __awaiter(this, void 0, void 0, function* () {
-            return yield new Promise((resolve, reject) => {
-                fs.readFile(jsonFile, 'utf8', (err, jsonString) => {
+            return yield new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
+                yield fs.readFile(jsonFile, 'utf8', (err, jsonString) => {
                     if (err) {
                         console.log("json read failed:", err);
                         reject();
                     }
-                    console.log('json data:', jsonString);
+                    console.log(`json data:\r\n${jsonString}`);
                     if (jsonString.length < 2) {
-                        console.log("json read failed: empty file", jsonString);
+                        console.log(`json read failed: empty file: ${jsonString}`);
                         if (nullOk) {
                             resolve(JSON);
                         }
@@ -182,13 +177,13 @@ class powershellTerminal {
                     }
                     resolve(JSON.parse(jsonString));
                 });
-            });
+            }));
         });
     }
     readText(textFile) {
         return __awaiter(this, void 0, void 0, function* () {
-            return yield new Promise((resolve, reject) => {
-                fs.readFile(textFile, 'utf8', (err, textString) => {
+            return yield new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
+                yield fs.readFile(textFile, 'utf8', (err, textString) => {
                     if (err) {
                         console.log("text read failed:", err);
                         reject();
@@ -196,7 +191,7 @@ class powershellTerminal {
                     console.log('text data:', textString);
                     resolve(textString);
                 });
-            });
+            }));
         });
     }
     receive(outputFile) {
@@ -240,9 +235,9 @@ class powershellTerminal {
     send(terminalCommand, wait = true) {
         return __awaiter(this, void 0, void 0, function* () {
             return yield new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
-                var fileName = powershellTerminal.tempDir + '/' + ++this.requestCounter + '.json';
+                var fileName = powershellTerminal.tempDir + '/' + ++powershellTerminal.requestCounter + '.json';
                 if (wait) {
-                    terminalCommand = '"' + terminalCommand + '" | out-json -counter ' + this.requestCounter + ';\r\n';
+                    terminalCommand = '"' + terminalCommand + '" | out-json -counter ' + powershellTerminal.requestCounter + ';\r\n';
                 }
                 else {
                     terminalCommand += ';\r\n';
@@ -267,22 +262,48 @@ class powershellTerminal {
     }
     waitForEvent(emitter, pendingFileName) {
         return __awaiter(this, void 0, void 0, function* () {
-            return yield new Promise((resolve, reject) => {
-                emitter.once('change', (fileName) => {
-                    console.log(`waitforevent emitter: ${fileName}`);
+            console.log(`waitForEvent waiting for: ${pendingFileName}`);
+            return yield new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
+                emitter.on('rename', (fileName) => __awaiter(this, void 0, void 0, function* () {
+                    console.log(`waitForEvent rename emitter: ${fileName}`);
                     if (pendingFileName.endsWith('/' + fileName)) {
-                        console.log(`emitter: ${pendingFileName}`);
+                        let timer;
+                        var timeout = new Promise((res) => timer = setTimeout(() => res(emitter.emit('change', fileName)), 10000));
+                        yield Promise.race([yield timeout, () => __awaiter(this, void 0, void 0, function* () {
+                                emitter.on('change', (fileName) => {
+                                    console.log(`waitForEvent change emitter2: ${fileName}`);
+                                    if (pendingFileName.endsWith('/' + fileName)) {
+                                        console.log(`waitForEvent change emitted2: ${pendingFileName}`);
+                                        emitter.removeAllListeners();
+                                        resolve(pendingFileName);
+                                    }
+                                });
+                            })]).finally(() => clearTimeout(timer));
+                        console.log(`waitForEvent rename emitted: ${pendingFileName}`);
+                        emitter.removeAllListeners();
                         resolve(pendingFileName);
                     }
+                }));
+                // emitter.on('change', (fileName) => {
+                //     console.log(`waitForEvent change emitter: ${fileName}`);
+                //     if (pendingFileName.endsWith('/' + fileName)) {
+                //         console.log(`waitForEvent change emitted: ${pendingFileName}`);
+                //         emitter.removeAllListeners();
+                //         resolve(pendingFileName);
+                //     }
+                // });
+                emitter.on('error', (fileName) => {
+                    if (pendingFileName.endsWith('/' + fileName)) {
+                        console.error(`waitForEvent error emitter: ${fileName}`);
+                        emitter.removeAllListeners();
+                        reject(fileName);
+                    }
                 });
-                emitter.once('error', (event) => {
-                    console.error(`waitforevent error emitter: ${event}`);
-                    reject(event);
-                });
-            });
+            }));
         });
     }
 }
 exports.powershellTerminal = powershellTerminal;
 powershellTerminal.tempDir = null;
+powershellTerminal.requestCounter = 0;
 //# sourceMappingURL=powershell-terminal.js.map

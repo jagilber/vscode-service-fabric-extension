@@ -2,24 +2,24 @@ import * as pwsh from './powershell-terminal';
 import * as vscode from "vscode";
 import * as vars from './osdetector';
 const exec = require('child_process').exec;
-var builScriptExtension;
+var buildScriptExtension;
 var installScriptExtension;
 const terminal = new pwsh.powershellTerminal();
 
 if (vars._isWindows) {
-    builScriptExtension = '.cmd';
+    buildScriptExtension = '.cmd';
     installScriptExtension = '.ps1';
 }
 
 else {
-    builScriptExtension = '.sh';
+    buildScriptExtension = '.sh';
     installScriptExtension = '.sh';
 }
 
 export async function publishApplication() {
-    await terminal.initialize('Service Fabric');
-    // var results:JSON = await terminal.sendReceive('import-module servicefabric');
-	// console.log(`results: ${results}`);
+    if (vars._isWindows) {
+        await terminal.initialize('Service Fabric');
+    }
     await readCloudProfile();
 }
 
@@ -69,7 +69,11 @@ async function deployToSecureClusterCert(clusterInfo) {
         });
     }
     else if (vars._isWindows) {
-        var connectResults:JSON = await terminal.sendReceive("Connect-ServiceFabricCluster -ConnectionEndPoint " + clusterInfo.ConnectionIPOrURL + ':' + clusterInfo.ConnectionPort + " -X509Credential -ServerCertThumbprint " + clusterInfo.ServerCertThumbprint + " -FindType FindByThumbprint -FindValue " + clusterInfo.ClientCertThumbprint + " -StoreLocation CurrentUser -StoreName My");
+        var connectResults: JSON = await terminal.sendReceive("Connect-ServiceFabricCluster -ConnectionEndPoint "
+            + clusterInfo.ConnectionIPOrURL + ':' + clusterInfo.ConnectionPort
+            + " -X509Credential -ServerCertThumbprint " + clusterInfo.ServerCertThumbprint
+            + " -FindType FindByThumbprint -FindValue " + clusterInfo.ClientCertThumbprint
+            + " -StoreLocation CurrentUser -StoreName My");
         console.log(`results: ${connectResults}`);
     }
     installApplication(terminal);
