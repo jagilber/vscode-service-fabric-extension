@@ -266,12 +266,18 @@ class powershellTerminal {
     waitForEvent(emitter, pendingFileName) {
         return __awaiter(this, void 0, void 0, function* () {
             this.consoleLog(`waitForEvent waiting for: ${pendingFileName}`);
+            var timer = null;
             return yield new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
                 emitter.on('rename', (fileName) => __awaiter(this, void 0, void 0, function* () {
                     this.consoleLog(`waitForEvent rename emitter: ${fileName}`);
                     if (pendingFileName.endsWith('/' + fileName)) {
                         // to handle null/no output as rename is always first event
-                        yield new Promise((res) => setTimeout(() => res(emitter.emit('change', fileName)), 1000));
+                        if (timer !== null) {
+                            this.consoleLog(`waitForEvent rename emitter. timer exists!: ${fileName}`);
+                            return;
+                        }
+                        yield new Promise((res) => timer =
+                            setTimeout(() => res(emitter.emit('change', fileName)), 1000));
                         this.consoleLog(`waitForEvent rename emitted: ${pendingFileName}`);
                         emitter.removeAllListeners();
                         resolve(pendingFileName);
@@ -282,6 +288,9 @@ class powershellTerminal {
                     if (pendingFileName.endsWith('/' + fileName)) {
                         this.consoleLog(`waitForEvent change emitted: ${pendingFileName}`);
                         emitter.removeAllListeners();
+                        if (timer !== null) {
+                            clearTimeout(timer);
+                        }
                         resolve(pendingFileName);
                     }
                 });
@@ -289,6 +298,9 @@ class powershellTerminal {
                     if (pendingFileName.endsWith('/' + fileName)) {
                         console.error(`waitForEvent error emitter: ${fileName}`);
                         emitter.removeAllListeners();
+                        if (timer !== null) {
+                            clearTimeout(timer);
+                        }
                         reject(fileName);
                     }
                 });
