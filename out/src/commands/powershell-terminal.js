@@ -264,6 +264,48 @@ class powershellTerminal {
         return __awaiter(this, void 0, void 0, function* () {
             console.log(`waitForEvent waiting for: ${pendingFileName}`);
             return yield new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
+                emitter.once('rename', (fileName) => __awaiter(this, void 0, void 0, function* () {
+                    console.log(`waitForEvent rename emitter: ${fileName}`);
+                    if (pendingFileName.endsWith('/' + fileName)) {
+                        let timer;
+                        var timeout = new Promise((res) => timer = setTimeout(() => res(emitter.emit('change', fileName)), 1000));
+                        yield Promise.race([yield timeout, () => __awaiter(this, void 0, void 0, function* () {
+                                emitter.once('change', (fileName) => {
+                                    console.log(`waitForEvent change emitter2: ${fileName}`);
+                                    if (pendingFileName.endsWith('/' + fileName)) {
+                                        console.log(`waitForEvent change emitted2: ${pendingFileName}`);
+                                        //emitter.removeAllListeners();
+                                        resolve(pendingFileName);
+                                    }
+                                });
+                            })]).finally(() => clearTimeout(timer));
+                        console.log(`waitForEvent rename emitted: ${pendingFileName}`);
+                        emitter.removeAllListeners();
+                        resolve(pendingFileName);
+                    }
+                }));
+                emitter.once('change', (fileName) => {
+                    console.log(`waitForEvent change emitter: ${fileName}`);
+                    if (pendingFileName.endsWith('/' + fileName)) {
+                        console.log(`waitForEvent change emitted: ${pendingFileName}`);
+                        //emitter.removeAllListeners();
+                        resolve(pendingFileName);
+                    }
+                });
+                emitter.once('error', (fileName) => {
+                    if (pendingFileName.endsWith('/' + fileName)) {
+                        console.error(`waitForEvent error emitter: ${fileName}`);
+                        //emitter.removeAllListeners();
+                        reject(fileName);
+                    }
+                });
+            }));
+        });
+    }
+    waitForEventBad(emitter, pendingFileName) {
+        return __awaiter(this, void 0, void 0, function* () {
+            console.log(`waitForEvent waiting for: ${pendingFileName}`);
+            return yield new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
                 emitter.on('rename', (fileName) => __awaiter(this, void 0, void 0, function* () {
                     console.log(`waitForEvent rename emitter: ${fileName}`);
                     if (pendingFileName.endsWith('/' + fileName)) {

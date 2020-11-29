@@ -259,13 +259,54 @@ export class powershellTerminal {
     async waitForEvent<T>(emitter: NodeJS.EventEmitter, pendingFileName: string): Promise<unknown> {
         console.log(`waitForEvent waiting for: ${pendingFileName}`);
         return await new Promise(async (resolve, reject) => {
+            emitter.once('rename', async (fileName) => {
+                console.log(`waitForEvent rename emitter: ${fileName}`);
+                if (pendingFileName.endsWith('/' + fileName)) {
+                    let timer;
+                    var timeout: Promise<boolean> = new Promise<boolean>((res) => timer = setTimeout(() => res(emitter.emit('change', fileName)), 1000));
+                    await Promise.race([await timeout, async () => {
+                        emitter.once('change', (fileName) => {
+                            console.log(`waitForEvent change emitter2: ${fileName}`);
+                            if (pendingFileName.endsWith('/' + fileName)) {
+                                console.log(`waitForEvent change emitted2: ${pendingFileName}`);
+                                //emitter.removeAllListeners();
+                                resolve(pendingFileName);
+                            }
+                        });
+                    }]).finally(() => clearTimeout(timer));
+
+                    console.log(`waitForEvent rename emitted: ${pendingFileName}`);
+                    emitter.removeAllListeners();
+                    resolve(pendingFileName);
+                }
+            });
+            emitter.once('change', (fileName) => {
+                console.log(`waitForEvent change emitter: ${fileName}`);
+                if (pendingFileName.endsWith('/' + fileName)) {
+                    console.log(`waitForEvent change emitted: ${pendingFileName}`);
+                    //emitter.removeAllListeners();
+                    resolve(pendingFileName);
+                }
+            });
+            emitter.once('error', (fileName) => {
+                if (pendingFileName.endsWith('/' + fileName)) {
+                    console.error(`waitForEvent error emitter: ${fileName}`);
+                    //emitter.removeAllListeners();
+                    reject(fileName);
+                }
+            });
+        });
+    }
+    async waitForEventBad<T>(emitter: NodeJS.EventEmitter, pendingFileName: string): Promise<unknown> {
+        console.log(`waitForEvent waiting for: ${pendingFileName}`);
+        return await new Promise(async (resolve, reject) => {
             emitter.on('rename', async (fileName) => {
                 console.log(`waitForEvent rename emitter: ${fileName}`);
                 if (pendingFileName.endsWith('/' + fileName)) {
                     let timer;
                     var timeout: Promise<boolean> = new Promise<boolean>((res) => timer = setTimeout(() => res(emitter.emit('change', fileName)), 10000));
                     await Promise.race([await timeout, async () => {
-                           emitter.on('change', (fileName) => {
+                        emitter.on('change', (fileName) => {
                             console.log(`waitForEvent change emitter2: ${fileName}`);
                             if (pendingFileName.endsWith('/' + fileName)) {
                                 console.log(`waitForEvent change emitted2: ${pendingFileName}`);
