@@ -19,7 +19,7 @@ export class powershellTerminal {
     constructor() {
     }
 
-    async addFileWatcher(): Promise<undefined> {
+    private async addFileWatcher(): Promise<undefined> {
         return await new Promise((resolve, reject) => {
             fs.watch(powershellTerminal.tempDir, (eventType, filename) => {
                 this.consoleLog(`event type is: ${eventType}`);
@@ -34,11 +34,11 @@ export class powershellTerminal {
         });
     }
 
-    consoleLog(data:string){
+    private consoleLog(data:string){
         console.log(new Date().toUTCString() + ':' + data);
     }
 
-    createTerminal(terminalName: string): boolean {
+    private createTerminal(terminalName: string): boolean {
         if (vscode.window.terminals.find(x => x.name === terminalName)) {
             this.consoleLog(`found existing terminal ${terminalName}`);
             this.terminal = vscode.window.terminals.find(x => x.name === terminalName);
@@ -124,7 +124,7 @@ export class powershellTerminal {
         });
     }
 
-    outFunctionGenerator(): string {
+    private outFunctionGenerator(): string {
         return '$global:requestCounter = 0;\
             function out-json{\
                 [CmdletBinding()]\
