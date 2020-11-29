@@ -29,12 +29,12 @@ class powershellTerminal {
         return __awaiter(this, void 0, void 0, function* () {
             return yield new Promise((resolve, reject) => {
                 fs.watch(powershellTerminal.tempDir, (eventType, filename) => {
-                    console.log(`event type is: ${eventType}`);
+                    this.consoleLog(`event type is: ${eventType}`);
                     if (filename) {
-                        console.log(`filename provided: ${filename}`);
+                        this.consoleLog(`filename provided: ${filename}`);
                     }
                     else {
-                        console.log('filename not provided');
+                        this.consoleLog('filename not provided');
                     }
                     emitter.emit(eventType, filename);
                 });
@@ -42,9 +42,12 @@ class powershellTerminal {
             });
         });
     }
+    consoleLog(data) {
+        console.log(new Date().toUTCString() + ':' + data);
+    }
     createTerminal(terminalName) {
         if (vscode.window.terminals.find(x => x.name === terminalName)) {
-            console.log(`found existing terminal ${terminalName}`);
+            this.consoleLog(`found existing terminal ${terminalName}`);
             this.terminal = vscode.window.terminals.find(x => x.name === terminalName);
         }
         else {
@@ -53,7 +56,7 @@ class powershellTerminal {
                 exec('sfctl cluster select --endpoint', function (err, stdout, stderr) {
                     if (err) {
                         vscode.window.showErrorMessage("Could not connect to cluster.");
-                        console.log(err);
+                        this.consoleLog(err);
                         return;
                     }
                 });
@@ -70,9 +73,9 @@ class powershellTerminal {
         return __awaiter(this, void 0, void 0, function* () {
             return yield new Promise((resolve, reject) => {
                 if (fs.existsSync(jsonFile)) {
-                    console.log(`removing jsonFile: ${jsonFile}`);
+                    this.consoleLog(`removing jsonFile: ${jsonFile}`);
                     fs.unlinkSync(jsonFile);
-                    console.log(`removed jsonFile: ${jsonFile}`);
+                    this.consoleLog(`removed jsonFile: ${jsonFile}`);
                 }
                 resolve(jsonFile);
             });
@@ -82,17 +85,17 @@ class powershellTerminal {
         return __awaiter(this, void 0, void 0, function* () {
             return yield new Promise((resolve, reject) => {
                 if (this.terminal !== null) {
-                    console.log('disposing terminal');
+                    this.consoleLog('disposing terminal');
                     this.terminal.dispose();
                 }
                 if (powershellTerminal.tempDir !== null) {
-                    console.log(`removing temp dir: ${powershellTerminal.tempDir}`);
+                    this.consoleLog(`removing temp dir: ${powershellTerminal.tempDir}`);
                     fs.rmdirSync(powershellTerminal.tempDir, {
                         maxRetries: 3,
                         recursive: true,
                         retryDelay: 1000
                     });
-                    console.log(`removed temp dir: ${powershellTerminal.tempDir}`);
+                    this.consoleLog(`removed temp dir: ${powershellTerminal.tempDir}`);
                 }
                 resolve(undefined);
             });
@@ -109,7 +112,7 @@ class powershellTerminal {
                         if (err) {
                             throw err;
                         }
-                        console.log(directory);
+                        this.consoleLog(directory);
                         powershellTerminal.tempDir = directory.replace(/\\/g, '/');
                         this.createTerminal(terminalName);
                         yield this.send(`write-host "using: ${powershellTerminal.tempDir}"`, false);
@@ -162,12 +165,12 @@ class powershellTerminal {
             return yield new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
                 yield fs.readFile(jsonFile, 'utf8', (err, jsonString) => {
                     if (err) {
-                        console.log("json read failed:", err);
+                        this.consoleLog(`json read failed: ${err}`);
                         reject();
                     }
-                    console.log(`json data:\r\n${jsonString}`);
+                    this.consoleLog(`json data:\r\n${jsonString}`);
                     if (jsonString.length < 2) {
-                        console.log(`json read failed: empty file: ${jsonString}`);
+                        this.consoleLog(`json read failed: empty file: ${jsonString}`);
                         if (nullOk) {
                             resolve(JSON);
                         }
@@ -185,10 +188,10 @@ class powershellTerminal {
             return yield new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
                 yield fs.readFile(textFile, 'utf8', (err, textString) => {
                     if (err) {
-                        console.log("text read failed:", err);
+                        this.consoleLog(`text read failed: ${err}`);
                         reject();
                     }
-                    console.log('text data:', textString);
+                    this.consoleLog(`text data: ${textString}`);
                     resolve(textString);
                 });
             }));
@@ -198,7 +201,7 @@ class powershellTerminal {
         return __awaiter(this, void 0, void 0, function* () {
             return yield new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
                 yield this.waitForEvent(emitter, outputFile);
-                console.log('receive returning');
+                this.consoleLog('receive returning');
                 resolve(outputFile);
             }));
         });
@@ -209,7 +212,7 @@ class powershellTerminal {
                 var resultJson = yield this.readJson(yield this.send(terminalCommand, true));
                 if (checkForErrors) {
                     for (var key in resultJson) {
-                        console.log(`checking key: ${key}`);
+                        this.consoleLog(`checking key: ${key}`);
                         if (resultJson[key].hasOwnProperty('Exception')) {
                             reject(resultJson);
                         }
@@ -242,7 +245,7 @@ class powershellTerminal {
                 else {
                     terminalCommand += ';\r\n';
                 }
-                console.log(terminalCommand);
+                this.consoleLog(terminalCommand);
                 this.terminal.sendText(terminalCommand);
                 if (wait) {
                     yield this.waitForEvent(emitter, fileName);
@@ -262,79 +265,27 @@ class powershellTerminal {
     }
     waitForEvent(emitter, pendingFileName) {
         return __awaiter(this, void 0, void 0, function* () {
-            console.log(`waitForEvent waiting for: ${pendingFileName}`);
+            this.consoleLog(`waitForEvent waiting for: ${pendingFileName}`);
             return yield new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
                 emitter.once('rename', (fileName) => __awaiter(this, void 0, void 0, function* () {
-                    console.log(`waitForEvent rename emitter: ${fileName}`);
+                    this.consoleLog(`waitForEvent rename emitter: ${fileName}`);
                     if (pendingFileName.endsWith('/' + fileName)) {
-                        let timer;
-                        var timeout = new Promise((res) => timer = setTimeout(() => res(emitter.emit('change', fileName)), 1000));
-                        yield Promise.race([yield timeout, () => __awaiter(this, void 0, void 0, function* () {
-                                emitter.once('change', (fileName) => {
-                                    console.log(`waitForEvent change emitter2: ${fileName}`);
-                                    if (pendingFileName.endsWith('/' + fileName)) {
-                                        console.log(`waitForEvent change emitted2: ${pendingFileName}`);
-                                        //emitter.removeAllListeners();
-                                        resolve(pendingFileName);
-                                    }
-                                });
-                            })]).finally(() => clearTimeout(timer));
-                        console.log(`waitForEvent rename emitted: ${pendingFileName}`);
+                        // to handle null/no output as rename is always first event
+                        yield new Promise((res) => setTimeout(() => res(emitter.emit('change', fileName)), 1000));
+                        this.consoleLog(`waitForEvent rename emitted: ${pendingFileName}`);
                         emitter.removeAllListeners();
                         resolve(pendingFileName);
                     }
                 }));
                 emitter.once('change', (fileName) => {
-                    console.log(`waitForEvent change emitter: ${fileName}`);
+                    this.consoleLog(`waitForEvent change emitter: ${fileName}`);
                     if (pendingFileName.endsWith('/' + fileName)) {
-                        console.log(`waitForEvent change emitted: ${pendingFileName}`);
-                        //emitter.removeAllListeners();
+                        this.consoleLog(`waitForEvent change emitted: ${pendingFileName}`);
+                        emitter.removeAllListeners();
                         resolve(pendingFileName);
                     }
                 });
                 emitter.once('error', (fileName) => {
-                    if (pendingFileName.endsWith('/' + fileName)) {
-                        console.error(`waitForEvent error emitter: ${fileName}`);
-                        //emitter.removeAllListeners();
-                        reject(fileName);
-                    }
-                });
-            }));
-        });
-    }
-    waitForEventBad(emitter, pendingFileName) {
-        return __awaiter(this, void 0, void 0, function* () {
-            console.log(`waitForEvent waiting for: ${pendingFileName}`);
-            return yield new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
-                emitter.on('rename', (fileName) => __awaiter(this, void 0, void 0, function* () {
-                    console.log(`waitForEvent rename emitter: ${fileName}`);
-                    if (pendingFileName.endsWith('/' + fileName)) {
-                        let timer;
-                        var timeout = new Promise((res) => timer = setTimeout(() => res(emitter.emit('change', fileName)), 10000));
-                        yield Promise.race([yield timeout, () => __awaiter(this, void 0, void 0, function* () {
-                                emitter.on('change', (fileName) => {
-                                    console.log(`waitForEvent change emitter2: ${fileName}`);
-                                    if (pendingFileName.endsWith('/' + fileName)) {
-                                        console.log(`waitForEvent change emitted2: ${pendingFileName}`);
-                                        emitter.removeAllListeners();
-                                        resolve(pendingFileName);
-                                    }
-                                });
-                            })]).finally(() => clearTimeout(timer));
-                        console.log(`waitForEvent rename emitted: ${pendingFileName}`);
-                        emitter.removeAllListeners();
-                        resolve(pendingFileName);
-                    }
-                }));
-                // emitter.on('change', (fileName) => {
-                //     console.log(`waitForEvent change emitter: ${fileName}`);
-                //     if (pendingFileName.endsWith('/' + fileName)) {
-                //         console.log(`waitForEvent change emitted: ${pendingFileName}`);
-                //         emitter.removeAllListeners();
-                //         resolve(pendingFileName);
-                //     }
-                // });
-                emitter.on('error', (fileName) => {
                     if (pendingFileName.endsWith('/' + fileName)) {
                         console.error(`waitForEvent error emitter: ${fileName}`);
                         emitter.removeAllListeners();
