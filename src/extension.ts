@@ -12,7 +12,7 @@ import { deployApplication } from './commands/deploy-application';
 import { publishApplication } from './commands/publish-application';
 import { removeApplication } from './commands/remove-application';
 import { upgradeApplication } from './commands/upgrade-application';
-const terminal = new pwsh.powershellTerminal();
+const terminal = new pwsh.powershellTerminal(['servicefabric']);
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -22,7 +22,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	await terminal.initialize('Service Fabric');
 	var results: JSON = null;
 	try {
-		results = await terminal.sendReceive('import-module servicefabric');
+		//results = await terminal.sendReceive('import-module servicefabric');
 		console.log(`results: ${results}`);
 	}
 	catch {
@@ -92,8 +92,8 @@ export async function activate(context: vscode.ExtensionContext) {
 }
 
 // this method is called when your extension is deactivated
-export function deactivate() {
+export async function deactivate() {
 	if (terminal !== null) {
-		terminal.disposeTerminal();
+		await terminal.disposeTerminal();
 	}
 }

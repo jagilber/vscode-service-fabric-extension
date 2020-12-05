@@ -8,60 +8,92 @@ const eventEmitter = require('events');
 const emitter = new eventEmitter();
 
 export class powershellTerminal {
-
     terminal: vscode.Terminal = null;
-    fileWatcher: vscode.FileSystemWatcher = null;
+    static fileWatcher: vscode.FileSystemWatcher = null;
     static tempDir: string = null;
     tempFile: string = null;
     writeEmitter = new vscode.EventEmitter<vscode.Uri>();
     static requestCounter: number = 0;
+    static moduleList: string[] = null;
+    static waitResult: boolean = false;
 
-    constructor() {
+    constructor(moduleList: string[] = null) {
+        powershellTerminal.moduleList = moduleList;
     }
 
-    private async addFileWatcher(): Promise<undefined> {
+    private async addFileWatcher(directory: string): Promise<boolean> {
         return await new Promise((resolve, reject) => {
-            fs.watch(powershellTerminal.tempDir, (eventType, filename) => {
-                this.consoleLog(`event type is: ${eventType}`);
-                if (filename) {
-                    this.consoleLog(`filename provided: ${filename}`);
-                } else {
-                    this.consoleLog('filename not provided');
+            if (powershellTerminal.fileWatcher === null) {
+                try {
+                    powershellTerminal.fileWatcher = fs.watch(directory, (eventType, filename) => {
+                        this.consoleLog(`event type is: ${eventType}`);
+                        if (filename) {
+                            this.consoleLog(`filename provided: ${filename}`);
+                        } else {
+                            this.consoleLog('filename not provided');
+                        }
+                        emitter.emit(eventType, filename);
+                    });
+                    resolve(true);
                 }
-                emitter.emit(eventType, filename);
-            });
-            resolve(undefined);
+                catch {
+                    powershellTerminal.fileWatcher = null;
+                    reject(false);
+                }
+            }
+            else{
+                resolve(true);
+            }
+
         });
     }
 
-    private consoleLog(data:string){
+    private consoleLog(data: string) {
         console.log(new Date().toUTCString() + ':' + data);
     }
 
-    private createTerminal(terminalName: string): boolean {
-        if (vscode.window.terminals.find(x => x.name === terminalName)) {
-            this.consoleLog(`found existing terminal ${terminalName}`);
-            this.terminal = vscode.window.terminals.find(x => x.name === terminalName);
-        }
-        else {
-            this.terminal = vscode.window.createTerminal(terminalName);
+    private async createTerminal(terminalName: string): Promise<boolean> {
+        return await new Promise(async (resolve, reject) => {
+            if (vscode.window.terminals.find(x => x.name === terminalName)) {
+                this.consoleLog(`found existing terminal ${terminalName}`);
+                this.terminal = vscode.window.terminals.find(x => x.name === terminalName);
+                resolve(true);
+            }
+            else {
+                this.terminal = vscode.window.createTerminal(terminalName);
 
-            if (vars._isLinux || vars._isMacintosh) {
-                exec('sfctl cluster select --endpoint', function (err, stdout, stderr) {
-                    if (err) {
-                        vscode.window.showErrorMessage("Could not connect to cluster.");
-                        this.consoleLog(err);
-                        return;
+                if (vars._isLinux || vars._isMacintosh) {
+                    exec('sfctl cluster select --endpoint', function (err, stdout, stderr) {
+                        if (err) {
+                            vscode.window.showErrorMessage("Could not connect to cluster.");
+                            this.consoleLog(err);
+                            reject(false);
+                        }
+
+                        resolve(true);
+                    });
+                }
+                else if (vars._isWindows) {
+                    this.show();
+                    await this.send(this.outFunctionGenerator(), false);
+                    await this.send('$PSModuleAutoLoadingPreference = 2', false);
+
+                    var results: JSON = await this.sendReceive('$psversiontable');
+                    if (results['PSVersion'] === null) {
+                        this.send('error: not a powershell console', false);
+                        reject(false);
+                        throw console.error('not a powershell console.');
                     }
-                });
+                    console.log(results);
+
+                    powershellTerminal.moduleList.forEach(async (module) => {
+                        await this.send(`import-module ${module}`);
+                    });
+
+                    resolve(true);
+                }
             }
-            else if (vars._isWindows) {
-                this.send(this.outFunctionGenerator(), false);
-                this.send('$PSModuleAutoLoadingPreference = 2', false);
-                this.show();
-            }
-        }
-        return this.terminal === null;
+        });
     }
 
     async deleteJsonFile(jsonFile: string): Promise<unknown> {
@@ -99,27 +131,27 @@ export class powershellTerminal {
         this.terminal.hide();
     }
 
-    async initialize(terminalName: string): Promise<unknown> {
+    async initialize(terminalName: string): Promise<any> {
         return await new Promise(async (resolve, reject) => {
             if (powershellTerminal.tempDir === null) {
                 fs.mkdtemp(path.join(os.tmpdir(), 'pst-'), async (err, directory) => {
                     if (err) {
-                        throw err;
+                        reject(err);
                     }
 
-                    this.consoleLog(directory);
                     powershellTerminal.tempDir = directory.replace(/\\/g, '/');
+                    await this.addFileWatcher(powershellTerminal.tempDir);
+                    this.consoleLog(directory);
 
-                    this.createTerminal(terminalName);
+                    await this.createTerminal(terminalName);
                     await this.send(`write-host "using: ${powershellTerminal.tempDir}"`, false);
-                    await this.addFileWatcher();
-                    resolve(undefined);
+                    resolve(powershellTerminal.tempDir);
                 });
             }
             else {
-                this.createTerminal(terminalName);
-                await this.addFileWatcher();
-                resolve(undefined);
+                await this.addFileWatcher(powershellTerminal.tempDir);
+                await this.createTerminal(terminalName);
+                resolve(powershellTerminal.tempDir);
             }
         });
     }
@@ -130,28 +162,31 @@ export class powershellTerminal {
                 [CmdletBinding()]\
                 Param(\
                     [Parameter(ValueFromPipeline)]\
-                    [string]$item,\
+                    [object[]]$items,\
                     [string]$fileDir = "' + powershellTerminal.tempDir + '",\
                     [int]$depth = 2,\
                     [int]$counter = 0\
                 )\
-                if($counter -eq 0){\
-                    $counter = ++$global:requestCounter;\
+                begin {\
+                    if($counter -eq 0){\
+                        $counter = ++$global:requestCounter;\
+                    }\
+                    else{\
+                        $global:requestCounter = $counter;\
+                    }\
+                    $fileName = $fileDir + "\\" + $counter + ".json";\
+                    $errorActionPreference = "continue";\
+                    write-verbose "init";\
                 }\
-                else{\
-                    $global:requestCounter = $counter;\
+                process {\
+                    write-verbose "process";\
+                    foreach ($item in $items) {\
+                        $item;\
+                        $item | convertto-json -depth $depth -warningaction silentlycontinue | out-file "$fileName";\
+                    }\
                 }\
-                $fileName = $fileDir + "\\" + $counter + ".json";\
-                $errorActionPreference = "continue";\
-                write-host "$item";\
-                try {\
-                    $r = iex $item;\
-                    write-host ($r | format-list * | out-string);\
-                    $r | convertto-json -depth $depth -warningaction silentlycontinue | out-file "$fileName";\
-                }\
-                catch {\
-                    write-error ($error | format-list * | out-string);\
-                    $error | convertto-json -depth $depth -warningaction silentlycontinue | out-file "$fileName";\
+                end {\
+                    write-verbose "final"\
                 }\
             }\
             cls';
@@ -228,11 +263,10 @@ export class powershellTerminal {
     }
 
     async send(terminalCommand: string, wait: boolean = true): Promise<string> {
-        return await new Promise(async (resolve, reject) => {
-            var fileName: string = powershellTerminal.tempDir + '/' + ++powershellTerminal.requestCounter + '.json';
-
+        var fileName: string = powershellTerminal.tempDir + '/' + ++powershellTerminal.requestCounter + '.json';
+        var promise: string = await new Promise(async (resolve, reject) => {
             if (wait) {
-                terminalCommand = '"' + terminalCommand + '" | out-json -counter ' + powershellTerminal.requestCounter + ';\r\n';
+                terminalCommand += ' | out-json -counter ' + powershellTerminal.requestCounter + ';\r\n';
             }
             else {
                 terminalCommand += ';\r\n';
@@ -247,6 +281,8 @@ export class powershellTerminal {
 
             resolve(fileName);
         });
+
+        return promise;
     }
 
     sendText(terminalCommand: string): void {
@@ -260,6 +296,12 @@ export class powershellTerminal {
         this.terminal.show();
     }
 
+    async sleep(ms: number) {
+        return new Promise(function (resolve, reject) {
+            setTimeout(function () { resolve(undefined); }, ms);
+        });
+    }
+
     async waitForEvent<T>(emitter: NodeJS.EventEmitter, pendingFileName: string): Promise<unknown> {
         this.consoleLog(`waitForEvent waiting for: ${pendingFileName}`);
         var timer: NodeJS.Timeout = null;
@@ -268,12 +310,12 @@ export class powershellTerminal {
                 this.consoleLog(`waitForEvent rename emitter: ${fileName}`);
                 if (pendingFileName.endsWith('/' + fileName)) {
                     // to handle null/no output as rename is always first event
-                    if(timer !== null){
+                    if (timer !== null) {
                         this.consoleLog(`waitForEvent rename emitter. rename event already fired: ${fileName}`);
                         return;
                     }
                     await new Promise<boolean>((res) => timer =
-                        setTimeout(() => 
+                        setTimeout(() =>
                             res(emitter.emit('change', fileName)), 1000));
                     this.consoleLog(`waitForEvent rename emitted: ${pendingFileName}`);
                     emitter.removeAllListeners();
@@ -285,7 +327,7 @@ export class powershellTerminal {
                 if (pendingFileName.endsWith('/' + fileName)) {
                     this.consoleLog(`waitForEvent change emitted: ${pendingFileName}`);
                     emitter.removeAllListeners();
-                    if(timer !== null){
+                    if (timer !== null) {
                         clearTimeout(timer);
                     }
                     resolve(pendingFileName);
@@ -295,7 +337,7 @@ export class powershellTerminal {
                 if (pendingFileName.endsWith('/' + fileName)) {
                     console.error(`waitForEvent error emitter: ${fileName}`);
                     emitter.removeAllListeners();
-                    if(timer !== null){
+                    if (timer !== null) {
                         clearTimeout(timer);
                     }
                     reject(fileName);
@@ -303,4 +345,17 @@ export class powershellTerminal {
             });
         });
     }
+
+    async waitForResult(): Promise<boolean> {
+        while (powershellTerminal.waitResult === false) {
+            console.log('waitForResult');
+            await this.sleep(1000);
+            //setTimeout(this.waitForResult, 1000);
+            //setTimeout(null, 1000);
+            //return this.waitForResult();
+        }
+        powershellTerminal.waitResult = false;
+        return true;
+    }
+
 }

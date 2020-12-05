@@ -88,7 +88,7 @@ async function installApplication(terminal: pwsh.powershellTerminal) {
         return;
     }
     const relativeInstallPath = vscode.workspace.asRelativePath(uri[0]);
-    terminal.sendReceiveText('./' + relativeInstallPath);
+    await terminal.sendReceiveText('./' + relativeInstallPath);
 }
 
 
