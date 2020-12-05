@@ -19,17 +19,29 @@ const terminal = new pwsh.powershellTerminal(['servicefabric']);
 export async function activate(context: vscode.ExtensionContext) {
 	// Use the console to output diagnostic information (console.log) and errors (console.error)
 	// This line of code will only be executed once when your extension is activated
-	await terminal.initialize('Service Fabric');
-	var results: JSON = null;
+
+	var results: string = null;
 	try {
-		//results = await terminal.sendReceive('import-module servicefabric');
-		console.log(`results: ${results}`);
+		await terminal.initialize('Service Fabric');
+		await terminal.sendReceiveText('npm');
+		await terminal.sendReceiveText('az');
+		await terminal.sendReceiveText('git');
+		await terminal.sendReceiveText('yo --help');
+		
+		try {
+			await terminal.sendReceiveText('deploy-servicefabricapplication');
+		}
+		catch {
+			results = await terminal.sendReceiveText(
+				'iwr "https://raw.githubusercontent.com/jagilber/powershellScripts/master/serviceFabric/sf-download-cab.ps1" -out "$pwd/sf-download-cab.ps1";\
+				. $pwd/sf-download-cab.ps1 -install $true'
+			);
+			console.log(`results: ${results}`);
+		}
 	}
-	catch {
-		results = await terminal.sendReceive('iwr https://raw.githubusercontent.com/jagilber/powershellScripts/master/serviceFabric/sf-download-cab.ps1 \
-			-out $pwd/sf-download-cab.ps1;\
-			$pwd/sf-download-cab.ps1 -install $true');
-		console.log(`results: ${results}`);
+	catch (error) {
+		await terminal.send('error checking prerequisites. this extension requires: nodejs, az,	git, yo');
+		console.error(error);
 	}
 
 	// try {

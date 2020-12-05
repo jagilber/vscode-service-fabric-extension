@@ -41,7 +41,7 @@ export class powershellTerminal {
                     reject(false);
                 }
             }
-            else{
+            else {
                 resolve(true);
             }
 
@@ -76,14 +76,20 @@ export class powershellTerminal {
                 else if (vars._isWindows) {
                     this.show();
                     await this.send(this.outFunctionGenerator(), false);
-                    await this.send('$PSModuleAutoLoadingPreference = 2', false);
-
                     var results: JSON = await this.sendReceive('$psversiontable');
+
                     if (results['PSVersion'] === null) {
-                        this.send('error: not a powershell console', false);
-                        reject(false);
-                        throw console.error('not a powershell console.');
+                        await this.sendReceiveText('pwsh');
+                        await this.send(this.outFunctionGenerator(), false);
+                        results = await this.sendReceive('$psversiontable');
+                        
+                        if (results['PSVersion'] === null) {
+                            this.send('error: not a powershell console', false);
+                            reject(false);
+                        }
                     }
+
+                    await this.send('$PSModuleAutoLoadingPreference = 2', false);
                     console.log(results);
 
                     powershellTerminal.moduleList.forEach(async (module) => {
@@ -162,31 +168,28 @@ export class powershellTerminal {
                 [CmdletBinding()]\
                 Param(\
                     [Parameter(ValueFromPipeline)]\
-                    [object[]]$items,\
+                    [scriptBlock]$scriptBlock,\
+                    [int]$counter = 0,\
                     [string]$fileDir = "' + powershellTerminal.tempDir + '",\
-                    [int]$depth = 2,\
-                    [int]$counter = 0\
+                    [int]$depth = 2\
                 )\
-                begin {\
-                    if($counter -eq 0){\
-                        $counter = ++$global:requestCounter;\
-                    }\
-                    else{\
-                        $global:requestCounter = $counter;\
-                    }\
-                    $fileName = $fileDir + "\\" + $counter + ".json";\
-                    $errorActionPreference = "continue";\
-                    write-verbose "init";\
+                if($counter -eq 0){\
+                    $counter = ++$global:requestCounter;\
                 }\
-                process {\
-                    write-verbose "process";\
-                    foreach ($item in $items) {\
-                        $item;\
-                        $item | convertto-json -depth $depth -warningaction silentlycontinue | out-file "$fileName";\
-                    }\
+                else{\
+                    $global:requestCounter = $counter;\
                 }\
-                end {\
-                    write-verbose "final"\
+                $fileName = $fileDir + "\\" + $counter + ".json";\
+                $errorActionPreference = "continue";\
+                try{\
+                    write-host $scriptBlock -foreground cyan;\
+                    $result = invoke-command -scriptblock $scriptblock;\
+                    $result;\
+                    $result | convertto-json -depth $depth -warningaction silentlycontinue | out-file -append "$fileName";\
+                }catch [Exception]{\
+                    $_.Exception | out-file -append "$fileName";\
+                    $error | fl * | out-string | out-file -append "$fileName";\
+                    $error.clear();\
                 }\
             }\
             cls';
@@ -254,8 +257,9 @@ export class powershellTerminal {
         return await new Promise(async (resolve, reject) => {
             var resultText: string = await this.readText(await this.send(terminalCommand, true));
             if (checkForErrors) {
-                if (resultText.startsWith('Exception') || resultText.startsWith('Error')) {
-                    reject(resultText);
+                if (resultText.trimStart().startsWith('Exception') || resultText.trimStart().startsWith('ErrorRecord')) {
+                    console.error(resultText);
+                    reject(`reject: error in record: ${resultText}`);
                 }
             }
             resolve(resultText);
@@ -266,7 +270,9 @@ export class powershellTerminal {
         var fileName: string = powershellTerminal.tempDir + '/' + ++powershellTerminal.requestCounter + '.json';
         var promise: string = await new Promise(async (resolve, reject) => {
             if (wait) {
-                terminalCommand += ' | out-json -counter ' + powershellTerminal.requestCounter + ';\r\n';
+                //terminalCommand = `try{${terminalCommand} | out-json -counter ${powershellTerminal.requestCounter};}\
+                //    catch{$error | out-json -counter ${powershellTerminal.requestCounter};}\r\n`;
+                terminalCommand = `{${terminalCommand}} | out-json -counter ${powershellTerminal.requestCounter};\r\n`;
             }
             else {
                 terminalCommand += ';\r\n';
@@ -305,34 +311,52 @@ export class powershellTerminal {
     async waitForEvent<T>(emitter: NodeJS.EventEmitter, pendingFileName: string): Promise<unknown> {
         this.consoleLog(`waitForEvent waiting for: ${pendingFileName}`);
         var timer: NodeJS.Timeout = null;
+
+        var onRenameListener = async function (this, fileName, pendingFileName): Promise<boolean> {
+            this.consoleLog(`waitForEvent rename emitter: ${fileName}`);
+            if (pendingFileName.endsWith('/' + fileName)) {
+                // to handle null/no output as rename is always first event
+                if (timer !== null) {
+                    this.consoleLog(`waitForEvent rename emitter. rename event already fired: ${fileName}`);
+                    return;
+                }
+                await new Promise<boolean>((res) => timer =
+                    setTimeout(() =>
+                        res(emitter.emit('change', fileName)), 1000));
+                this.consoleLog(`waitForEvent rename emitted: ${pendingFileName}`);
+                return true;
+            }
+
+            return false;
+        };
+
+        var onChangeListener = function (this, fileName, pendingFileName): boolean {
+            this.consoleLog(`waitForEvent change emitter: ${fileName}`);
+            if (pendingFileName.endsWith('/' + fileName)) {
+                this.consoleLog(`waitForEvent change emitted: ${pendingFileName}`);
+                if (timer !== null) {
+                    clearTimeout(timer);
+                }
+                return true;
+            }
+            return false;
+        };
+
         return await new Promise(async (resolve, reject) => {
             emitter.on('rename', async (fileName) => {
-                this.consoleLog(`waitForEvent rename emitter: ${fileName}`);
-                if (pendingFileName.endsWith('/' + fileName)) {
-                    // to handle null/no output as rename is always first event
-                    if (timer !== null) {
-                        this.consoleLog(`waitForEvent rename emitter. rename event already fired: ${fileName}`);
-                        return;
-                    }
-                    await new Promise<boolean>((res) => timer =
-                        setTimeout(() =>
-                            res(emitter.emit('change', fileName)), 1000));
-                    this.consoleLog(`waitForEvent rename emitted: ${pendingFileName}`);
-                    emitter.removeAllListeners();
+                if (await onRenameListener.call(this, fileName, pendingFileName)) {
+                    emitter.off('rename', onRenameListener);
                     resolve(pendingFileName);
                 }
             });
+
             emitter.on('change', (fileName) => {
-                this.consoleLog(`waitForEvent change emitter: ${fileName}`);
-                if (pendingFileName.endsWith('/' + fileName)) {
-                    this.consoleLog(`waitForEvent change emitted: ${pendingFileName}`);
-                    emitter.removeAllListeners();
-                    if (timer !== null) {
-                        clearTimeout(timer);
-                    }
+                if (onChangeListener.call(this, fileName, pendingFileName)) {
+                    emitter.off('change', onChangeListener);
                     resolve(pendingFileName);
                 }
             });
+
             emitter.on('error', (fileName) => {
                 if (pendingFileName.endsWith('/' + fileName)) {
                     console.error(`waitForEvent error emitter: ${fileName}`);
