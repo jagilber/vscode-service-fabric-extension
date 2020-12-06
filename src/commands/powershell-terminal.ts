@@ -1,3 +1,4 @@
+import { time } from "console";
 import * as vscode from "vscode";
 import * as vars from './osdetector';
 const exec = require('child_process').exec;
@@ -302,13 +303,18 @@ export class powershellTerminal {
         this.terminal.show();
     }
 
-    async sleep(ms: number) {
-        return new Promise(function (resolve, reject) {
-            setTimeout(function () { resolve(undefined); }, ms);
+    async sleep(timeoutMs: number): Promise<boolean> {
+        return await new Promise((resolve, reject) => {
+            setTimeout(() => {
+                console.log(`sleep resolving ${new Date()}`);
+                resolve(false);
+                return false;
+            }, timeoutMs);
+            //setTimeout(resolve, timeoutMs);
         });
     }
 
-    async waitForEvent<T>(emitter: NodeJS.EventEmitter, pendingFileName: string): Promise<unknown> {
+    async waitForEvent<T>(emitter: NodeJS.EventEmitter, pendingFileName: string, timeoutMs:number = 10000): Promise<unknown> {
         this.consoleLog(`waitForEvent waiting for: ${pendingFileName}`);
         var timer: NodeJS.Timeout = null;
 
@@ -342,22 +348,22 @@ export class powershellTerminal {
             return false;
         };
 
-        return await new Promise(async (resolve, reject) => {
-            emitter.on('rename', async (fileName) => {
-                if (await onRenameListener.call(this, fileName, pendingFileName)) {
+        var promise:Promise<boolean> = new Promise(async (resolve, reject) => {
+            emitter.on('rename', async (fileName, pendingFileName) => {
+                if (await onRenameListener.apply(this, [fileName, pendingFileName])) {
                     emitter.off('rename', onRenameListener);
                     resolve(pendingFileName);
                 }
             });
 
-            emitter.on('change', (fileName) => {
-                if (onChangeListener.call(this, fileName, pendingFileName)) {
+            emitter.on('change', (fileName, pendingFileName) => {
+                if (onChangeListener.apply(this, [fileName, pendingFileName])) {
                     emitter.off('change', onChangeListener);
                     resolve(pendingFileName);
                 }
             });
 
-            emitter.on('error', (fileName) => {
+            emitter.on('error', (fileName, pendingFileName) => {
                 if (pendingFileName.endsWith('/' + fileName)) {
                     console.error(`waitForEvent error emitter: ${fileName}`);
                     emitter.removeAllListeners();
@@ -368,6 +374,19 @@ export class powershellTerminal {
                 }
             });
         });
+
+        var start: Date = new Date();
+        console.log(`starting race:${start}`);
+        var result:boolean = await Promise.race([this.sleep(timeoutMs), promise]);
+        
+        var now: Date = new Date();
+        console.log(`finished race:${now}`);
+
+        if(!result) {
+            console.error(`rejecting promise race:${now}`);
+            Promise.reject(promise);
+        }        
+        return promise;
     }
 
     async waitForResult(): Promise<boolean> {
