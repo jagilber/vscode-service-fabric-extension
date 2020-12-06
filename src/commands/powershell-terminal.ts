@@ -17,6 +17,7 @@ export class powershellTerminal {
     static requestCounter: number = 0;
     static moduleList: string[] = null;
     static waitResult: boolean = false;
+    static timeout: NodeJS.Timeout = null;
 
     constructor(moduleList: string[] = null) {
         powershellTerminal.moduleList = moduleList;
@@ -305,7 +306,7 @@ export class powershellTerminal {
 
     async sleep(timeoutMs: number): Promise<boolean> {
         return await new Promise((resolve, reject) => {
-            setTimeout(() => {
+            powershellTerminal.timeout = setTimeout(() => {
                 console.log(`sleep resolving ${new Date()}`);
                 resolve(false);
                 return false;
@@ -318,8 +319,11 @@ export class powershellTerminal {
         this.consoleLog(`waitForEvent waiting for: ${pendingFileName}`);
         var timer: NodeJS.Timeout = null;
 
-        var onRenameListener = async function (this, fileName, pendingFileName): Promise<boolean> {
+        var onRenameListener = async function (this, fileName): Promise<boolean> {
             this.consoleLog(`waitForEvent rename emitter: ${fileName}`);
+            this.pendingFileName = pendingFileName;
+            this.timer = timer;
+
             if (pendingFileName.endsWith('/' + fileName)) {
                 // to handle null/no output as rename is always first event
                 if (timer !== null) {
@@ -336,8 +340,11 @@ export class powershellTerminal {
             return false;
         };
 
-        var onChangeListener = function (this, fileName, pendingFileName): boolean {
+        var onChangeListener = function (this, fileName): boolean {
             this.consoleLog(`waitForEvent change emitter: ${fileName}`);
+            this.pendingFileName = pendingFileName;
+            this.timer = timer;
+
             if (pendingFileName.endsWith('/' + fileName)) {
                 this.consoleLog(`waitForEvent change emitted: ${pendingFileName}`);
                 if (timer !== null) {
@@ -349,24 +356,21 @@ export class powershellTerminal {
         };
 
         var promise:Promise<boolean> = new Promise(async (resolve, reject) => {
-            emitter.on('rename', async (fileName, pendingFileName) => {
-                if (await onRenameListener.apply(this, [fileName, pendingFileName])) {
-                    emitter.off('rename', onRenameListener);
+            emitter.once('rename', async (fileName, pendingFileName) => {
+                if (await onRenameListener.call(this, fileName)) {
                     resolve(pendingFileName);
                 }
             });
 
-            emitter.on('change', (fileName, pendingFileName) => {
-                if (onChangeListener.apply(this, [fileName, pendingFileName])) {
-                    emitter.off('change', onChangeListener);
+            emitter.once('change', (fileName, pendingFileName) => {
+                if (onChangeListener.call(this, fileName)) {
                     resolve(pendingFileName);
                 }
             });
 
-            emitter.on('error', (fileName, pendingFileName) => {
+            emitter.once('error', (fileName, pendingFileName) => {
                 if (pendingFileName.endsWith('/' + fileName)) {
                     console.error(`waitForEvent error emitter: ${fileName}`);
-                    emitter.removeAllListeners();
                     if (timer !== null) {
                         clearTimeout(timer);
                     }
@@ -386,6 +390,14 @@ export class powershellTerminal {
             console.error(`rejecting promise race:${now}`);
             Promise.reject(promise);
         }        
+
+        clearTimeout(powershellTerminal.timeout);
+        //emitter.removeAllListeners();
+        //emitter.off('rename', onRenameListener);
+        //emitter.off('change', onChangeListener);
+        //emitter.removeListener('change', onChangeListener);
+        //emitter.removeListener('rename', onRenameListener);
+        this.consoleLog(`listener count: ${emitter.listenerCount('change')}`);
         return promise;
     }
 
