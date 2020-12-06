@@ -1,4 +1,5 @@
 import { time } from "console";
+import { resolve } from "dns";
 import * as vscode from "vscode";
 import * as vars from './osdetector';
 const exec = require('child_process').exec;
@@ -14,7 +15,7 @@ export class powershellTerminal {
     static tempDir: string = null;
     tempFile: string = null;
     writeEmitter = new vscode.EventEmitter<vscode.Uri>();
-    static requestCounter: number = 0;
+    static requestCounter: number = 1;
     static moduleList: string[] = null;
     static waitResult: boolean = false;
     static timeout: NodeJS.Timeout = null;
@@ -77,26 +78,13 @@ export class powershellTerminal {
                 }
                 else if (vars._isWindows) {
                     this.show();
-                    await this.send(this.outFunctionGenerator(), false);
-                    var results: JSON = await this.sendReceive('$psversiontable');
-
-                    if (results['PSVersion'] === null) {
-                        await this.sendReceiveText('pwsh');
-                        await this.send(this.outFunctionGenerator(), false);
-                        results = await this.sendReceive('$psversiontable');
-                        
-                        if (results['PSVersion'] === null) {
-                            this.send('error: not a powershell console', false);
-                            reject(false);
+                    if (!await this.verifyTerminal()) {
+                        if (!await this.verifyTerminal('pwsh.exe')) {
+                            if (!await this.verifyTerminal('powershell.exe')) {
+                                reject(false);
+                            }
                         }
                     }
-
-                    await this.send('$PSModuleAutoLoadingPreference = 2', false);
-                    console.log(results);
-
-                    powershellTerminal.moduleList.forEach(async (module) => {
-                        await this.send(`import-module ${module}`);
-                    });
 
                     resolve(true);
                 }
@@ -187,7 +175,7 @@ export class powershellTerminal {
                     write-host $scriptBlock -foreground cyan;\
                     $result = invoke-command -scriptblock $scriptblock;\
                     $result;\
-                    $result | convertto-json -depth $depth -warningaction silentlycontinue | out-file -append "$fileName";\
+                    $result | convertto-json -depth $depth -warningaction silentlycontinue | out-file -encoding utf8 -append "$fileName";\
                 }catch [Exception]{\
                     $_.Exception | out-file -append "$fileName";\
                     $error | fl * | out-string | out-file -append "$fileName";\
@@ -198,8 +186,12 @@ export class powershellTerminal {
     }
 
     async readJson(jsonFile: string, nullOk: boolean = true): Promise<JSON> {
+        if(!jsonFile && nullOk){
+            return Promise.resolve(null);
+        }
         return await new Promise(async (resolve, reject) => {
             await fs.readFile(jsonFile, 'utf8', (err, jsonString: string) => {
+                jsonString = jsonString.trim();
                 if (err) {
                     this.consoleLog(`json read failed: ${err}`);
                     reject();
@@ -220,6 +212,9 @@ export class powershellTerminal {
     }
 
     async readText(textFile: string): Promise<string> {
+        if(!textFile){
+            return Promise.resolve(null);
+        }
         return await new Promise(async (resolve, reject) => {
             await fs.readFile(textFile, 'utf8', (err, textString) => {
                 if (err) {
@@ -259,7 +254,7 @@ export class powershellTerminal {
         return await new Promise(async (resolve, reject) => {
             var resultText: string = await this.readText(await this.send(terminalCommand, true));
             if (checkForErrors) {
-                if (resultText.trimStart().startsWith('Exception') || resultText.trimStart().startsWith('ErrorRecord')) {
+                if (resultText && resultText.trimStart().startsWith('Exception') || resultText.trimStart().startsWith('ErrorRecord')) {
                     console.error(resultText);
                     reject(`reject: error in record: ${resultText}`);
                 }
@@ -274,17 +269,20 @@ export class powershellTerminal {
             if (wait) {
                 //terminalCommand = `try{${terminalCommand} | out-json -counter ${powershellTerminal.requestCounter};}\
                 //    catch{$error | out-json -counter ${powershellTerminal.requestCounter};}\r\n`;
-                terminalCommand = `{${terminalCommand}} | out-json -counter ${powershellTerminal.requestCounter};\r\n`;
+                terminalCommand = `{${terminalCommand}} | out-json -counter ${powershellTerminal.requestCounter}\r\n`;
             }
             else {
-                terminalCommand += ';\r\n';
+                terminalCommand += '\r\n';
             }
 
+            this.consoleLog(`sending text to real console ${fileName}`);
             this.consoleLog(terminalCommand);
             this.terminal.sendText(terminalCommand);
 
             if (wait) {
-                await this.waitForEvent(emitter, fileName);
+                if(!await this.waitForEvent(emitter, fileName)){
+                    resolve(null);
+                }
             }
 
             resolve(fileName);
@@ -315,8 +313,59 @@ export class powershellTerminal {
         });
     }
 
-    async waitForEvent<T>(emitter: NodeJS.EventEmitter, pendingFileName: string, timeoutMs:number = 10000): Promise<unknown> {
+    async verifyTerminal(cmd: string = null): Promise<boolean> {
+        var promise: Promise<boolean> = new Promise(async (resolve, reject) => {
+            try {
+                if (cmd) {
+                    await this.send(cmd,false);
+                    await this.sleep(5000);
+                }
+                var pendingFileName: string = `${powershellTerminal.tempDir}/0.json`;
+
+                // this.sleep(100).then(async () => {
+                //     if(!await this.waitForEvent(emitter, pendingFileName)){
+                //         return resolve(false);
+                //     }
+                // });
+                await this.send(`[environment]::GetEnvironmentVariables() >>${pendingFileName}`, false);
+                if(!await this.waitForEvent(emitter, pendingFileName)){
+                    return resolve(false);
+                }
+
+                await this.send(this.outFunctionGenerator(), false);
+                var results: JSON = await this.sendReceive('$psversiontable');
+
+                if (results === null || results['PSVersion'] === null) {
+                    this.send('write-host "error: not a powershell console"', false);
+                    return resolve(false);
+                }
+
+                await this.send('$PSModuleAutoLoadingPreference = 2', false);
+                console.log(results);
+
+                powershellTerminal.moduleList.forEach(async (module) => {
+                    await this.send(`import-module ${module}`);
+                });
+                resolve(true);
+            }
+            catch (Exception) {
+                console.error(Exception);
+                resolve(false);
+            }
+        });
+
+        promise.catch((error) => {
+            console.error(error);
+            return Promise.resolve(false);
+        });
+        return await promise;
+    }
+
+    async waitForEvent<T>(emitter: NodeJS.EventEmitter, pendingFileName: string, timeoutMs: number = 10000): Promise<string> {
         this.consoleLog(`waitForEvent waiting for: ${pendingFileName}`);
+        if(!pendingFileName){
+            return Promise.resolve(null);
+        }
         var timer: NodeJS.Timeout = null;
 
         var onRenameListener = async function (this, fileName): Promise<boolean> {
@@ -355,41 +404,41 @@ export class powershellTerminal {
             return false;
         };
 
-        var promise:Promise<boolean> = new Promise(async (resolve, reject) => {
-            emitter.once('rename', async (fileName, pendingFileName) => {
+        var promise: Promise<string> = new Promise(async (resolve, reject) => {
+            emitter.once('rename', async (fileName) => {
                 if (await onRenameListener.call(this, fileName)) {
                     resolve(pendingFileName);
                 }
             });
 
-            emitter.once('change', (fileName, pendingFileName) => {
+            emitter.once('change', (fileName) => {
                 if (onChangeListener.call(this, fileName)) {
                     resolve(pendingFileName);
                 }
             });
 
-            emitter.once('error', (fileName, pendingFileName) => {
+            emitter.once('error', (fileName) => {
                 if (pendingFileName.endsWith('/' + fileName)) {
                     console.error(`waitForEvent error emitter: ${fileName}`);
                     if (timer !== null) {
                         clearTimeout(timer);
                     }
-                    reject(fileName);
+                    reject(null);
                 }
             });
         });
 
         var start: Date = new Date();
-        console.log(`starting race:${start}`);
-        var result:boolean = await Promise.race([this.sleep(timeoutMs), promise]);
-        
-        var now: Date = new Date();
-        console.log(`finished race:${now}`);
+        this.consoleLog(`starting race:${start}`);
+        var result: boolean|string = await Promise.race([this.sleep(timeoutMs), promise]);
 
-        if(!result) {
-            console.error(`rejecting promise race:${now}`);
-            Promise.reject(promise);
-        }        
+        var now: Date = new Date();
+        this.consoleLog(`finished race:${now}`);
+
+        if(!result){
+            console.error(`resolve(false) promise race (timedout):${now} ${pendingFileName}`);
+            return Promise.resolve(null);
+        }
 
         clearTimeout(powershellTerminal.timeout);
         //emitter.removeAllListeners();
