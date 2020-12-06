@@ -1,11 +1,13 @@
-import { time } from "console";
-import { resolve } from "dns";
+// nodejs vscode extension terminal wrapper for powershell
+
+import { time } from 'console';
+import { resolve } from 'dns';
 import * as vars from './osdetector';
-import * as vscode from "vscode";
+import * as vscode from 'vscode';
 const eventEmitter = require('events');
 const emitter = new eventEmitter();
 const exec = require('child_process').exec;
-const fs = require("fs");
+const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
@@ -64,7 +66,6 @@ export class powershellTerminal {
             }
             else {
                 this.terminal = vscode.window.createTerminal(terminalName);
-
                 if (vars._isLinux || vars._isMacintosh) {
                     exec('sfctl cluster select --endpoint', function (err, stdout, stderr) {
                         if (err) {
@@ -108,7 +109,6 @@ export class powershellTerminal {
                 this.consoleLog('disposing terminal');
                 this.terminal.dispose();
             }
-
             if (powershellTerminal.tempDir !== null) {
                 this.consoleLog(`removing temp dir: ${powershellTerminal.tempDir}`);
                 fs.rmdirSync(powershellTerminal.tempDir, {
@@ -133,7 +133,6 @@ export class powershellTerminal {
                     if (err) {
                         reject(err);
                     }
-
                     powershellTerminal.tempDir = directory.replace(/\\/g, '/');
                     await this.addFileWatcher(powershellTerminal.tempDir);
                     this.consoleLog(directory);
@@ -243,7 +242,6 @@ export class powershellTerminal {
             else {
                 terminalCommand += '\r\n';
             }
-
             this.consoleLog(`sending text to real console ${fileName}`);
             this.consoleLog(terminalCommand);
             this.terminal.sendText(terminalCommand);
@@ -305,7 +303,6 @@ export class powershellTerminal {
                 resolve(false);
                 return false;
             }, timeoutMs);
-            //setTimeout(resolve, timeoutMs);
         });
     }
 
@@ -318,14 +315,12 @@ export class powershellTerminal {
                 }
                 var pendingFileName: string = `${powershellTerminal.tempDir}/0.json`;
                 await this.send(`[environment]::GetEnvironmentVariables() >>${pendingFileName}`, false);
-
                 if (!await this.waitForEvent(emitter, pendingFileName)) {
                     return resolve(false);
                 }
 
                 await this.send(this.outFunctionGenerator(), false);
                 var results: JSON = await this.sendReceive('$psversiontable');
-
                 if (results === null || results['PSVersion'] === null) {
                     this.send('write-host "error: not a powershell console"', false);
                     return resolve(false);
@@ -333,7 +328,6 @@ export class powershellTerminal {
 
                 await this.send('$PSModuleAutoLoadingPreference = 2', false);
                 console.log(results);
-
                 powershellTerminal.moduleList.forEach(async (module) => {
                     await this.send(`import-module ${module}`);
                 });
@@ -376,7 +370,6 @@ export class powershellTerminal {
                 this.consoleLog(`waitForEvent rename emitted: ${pendingFileName}`);
                 return true;
             }
-
             return false;
         };
 
@@ -384,7 +377,6 @@ export class powershellTerminal {
             this.consoleLog(`waitForEvent change emitter: ${fileName}`);
             this.pendingFileName = pendingFileName;
             this.timer = timer;
-
             if (pendingFileName.endsWith('/' + fileName)) {
                 this.consoleLog(`waitForEvent change emitted: ${pendingFileName}`);
                 if (timer !== null) {
